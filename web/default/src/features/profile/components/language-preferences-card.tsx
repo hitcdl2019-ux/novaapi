@@ -134,7 +134,7 @@ export function LanguagePreferencesCard(props: LanguagePreferencesCardProps) {
               <SelectGroup>
                 {INTERFACE_LANGUAGE_OPTIONS.map((language) => (
                   <SelectItem key={language.code} value={language.code}>
-                    {language.label}
+                    {currentLanguage === language.code ? language.nativeLabel : language.label}
                   </SelectItem>
                 ))}
               </SelectGroup>

@@ -28,7 +28,7 @@ const SNIPPETS = {
   -d '{
     "model": "deepseek-v4-pro",
     "messages": [
-      {"role": "user", "content": "Write a poem about AI"}
+      {"role": "user", "content": "Hello"}
     ]
   }'`,
   node: `import OpenAI from "openai";
@@ -40,12 +40,8 @@ const openai = new OpenAI({
 
 const completion = await openai.chat.completions.create({
   model: "deepseek-v4-pro",
-  messages: [
-    {"role": "user", "content": "Write a poem about AI"}
-  ]
-});
-
-console.log(completion.choices[0].message);`,
+  messages: [{"role": "user", "content": "Hello"}]
+});`,
   python: `from openai import OpenAI
 
 client = OpenAI(
@@ -55,12 +51,8 @@ client = OpenAI(
 
 completion = client.chat.completions.create(
     model="deepseek-v4-pro",
-    messages=[
-        {"role": "user", "content": "Write a poem about AI"}
-    ]
-)
-
-print(completion.choices[0].message)`,
+    messages=[{"role": "user", "content": "Hello"}]
+)`,
 }
 
 type Tab = keyof typeof SNIPPETS
@@ -83,44 +75,68 @@ export function HeroTerminalDemo() {
   }
 
   return (
-    <div className='mx-auto mt-16 w-full max-w-2xl text-left'>
-      <div className='overflow-hidden rounded-xl border border-border/40 bg-[#0d1117] shadow-lg'>
-        {/* Header bar */}
-        <div className='flex items-center justify-between border-b border-white/[0.06] px-4 py-2.5'>
-          <div className='flex items-center gap-2'>
-            {TABS.map((tab) => (
-              <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
-                className={cn(
-                  'rounded-md px-3 py-1 text-xs font-medium transition-colors',
-                  activeTab === tab.id
-                    ? 'bg-white/10 text-white'
-                    : 'text-white/40 hover:text-white/70'
-                )}
-              >
-                {tab.label}
-              </button>
-            ))}
-          </div>
-          <button
-            onClick={handleCopy}
-            className='flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs text-white/40 transition-colors hover:text-white/80'
-          >
-            {copied ? (
-              <Check className='size-3.5 text-emerald-400' />
-            ) : (
-              <Copy className='size-3.5' />
-            )}
-            {copied ? t('Copied') : t('Copy')}
-          </button>
-        </div>
+    <div className='mx-auto mt-16 w-full max-w-5xl text-left'>
+      <div className='relative'>
+        {/* Ambient glow — subtle, confined */}
+        <div
+          aria-hidden
+          className='pointer-events-none absolute -inset-0.5 rounded-2xl opacity-15 blur-xl'
+          style={{
+            background: 'linear-gradient(to right, #6366f1, #8b5cf6, #a855f7)',
+          }}
+        />
 
-        {/* Code area */}
-        <div className='overflow-x-auto px-4 py-4'>
-          <pre className='font-mono text-[13px] leading-relaxed text-[#c9d1d9] whitespace-pre'>
-            <code>{SNIPPETS[activeTab]}</code>
-          </pre>
+        {/* Terminal frame */}
+        <div className='relative overflow-hidden rounded-xl border border-white/10 bg-[#0d1117] shadow-2xl'>
+          {/* Header bar */}
+          <div className='flex items-center justify-between border-b border-white/[0.06] px-5 py-2'>
+            <div className='flex items-center gap-2'>
+              {/* Traffic lights */}
+              <div className='flex items-center gap-1.5 mr-3'>
+                <div className='size-2.5 rounded-full bg-[#ff5f57]' />
+                <div className='size-2.5 rounded-full bg-[#febc2e]' />
+                <div className='size-2.5 rounded-full bg-[#28c840]' />
+              </div>
+              {TABS.map((tab) => (
+                <button
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id)}
+                  className={cn(
+                    'rounded-md px-2.5 py-1 text-[11px] font-medium transition-colors',
+                    activeTab === tab.id
+                      ? 'bg-white/10 text-white'
+                      : 'text-white/40 hover:text-white/70'
+                  )}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
+            <button
+              onClick={handleCopy}
+              className='flex items-center gap-1.5 rounded-md px-2 py-1 text-[11px] text-white/40 transition-colors hover:text-white/80'
+            >
+              {copied ? (
+                <Check className='size-3 text-emerald-400' />
+              ) : (
+                <Copy className='size-3' />
+              )}
+              {copied ? t('Copied') : t('Copy')}
+            </button>
+          </div>
+
+          {/* Code area */}
+          <div className='overflow-hidden border-b border-white/[0.06] px-5 py-4'>
+            <div className='mb-2 flex items-center gap-2'>
+              <span className='inline-flex items-center rounded bg-indigo-500/20 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider text-indigo-300'>
+                Request
+              </span>
+              <span className='text-white/25 text-[9px]'>{activeTab.toUpperCase()}</span>
+            </div>
+            <pre className='font-mono text-[11px] leading-snug text-[#c9d1d9] whitespace-pre-wrap break-all'>
+              <code>{SNIPPETS[activeTab]}</code>
+            </pre>
+          </div>
         </div>
       </div>
     </div>

@@ -45,13 +45,13 @@ export function HowItWorks() {
   ]
 
   return (
-    <section className='bg-indigo-50 dark:bg-indigo-950/20 relative z-10 px-6 py-14 md:py-18'>
+    <section className='bg-indigo-50 dark:bg-indigo-950/20 relative z-10 px-6 py-20 md:py-28'>
       <div className='mx-auto max-w-6xl'>
-        <AnimateInView className='mb-8 text-center md:mb-12'>
-          <h2 className='text-2xl font-bold tracking-tight md:text-3xl'>
+        <AnimateInView className='mb-12 text-center'>
+          <h2 className='text-3xl font-bold tracking-tight md:text-4xl'>
             {t('Three steps to get started')}
           </h2>
-          <p className='text-muted-foreground mt-4 text-sm md:text-base'>
+          <p className='text-muted-foreground mt-4 text-base md:text-lg'>
             {t('Just change the API address and key to get started')}
           </p>
         </AnimateInView>
@@ -64,13 +64,20 @@ export function HowItWorks() {
             className='absolute left-[calc(16.67%+2rem)] right-[calc(16.67%+2rem)] top-[2rem] hidden md:block'
           >
             <div className='relative h-[2px]'>
-              {/* Background line */}
-              <div className='absolute inset-0 border-t-2 border-dashed border-indigo-200 dark:border-indigo-700/50' />
-              {/* Animated progress line */}
+              {/* Gray dashed background line */}
+              <div className='absolute inset-0 border-t-2 border-dashed border-gray-300 dark:border-gray-600' />
+              {/* Animated glowing progress line — grows from left to right */}
               <div
-                className='absolute inset-0 origin-left border-t-2 border-indigo-500 dark:border-indigo-400'
+                className='absolute inset-0 origin-left border-t-2 border-indigo-500 dark:border-indigo-400 shadow-[0_0_8px_rgba(99,102,241,0.5)]'
                 style={{
-                  animation: 'step-line-grow 1.2s cubic-bezier(0.16, 1, 0.3, 1) forwards',
+                  animation: 'step-line-grow 1.5s cubic-bezier(0.16, 1, 0.3, 1) forwards',
+                }}
+              />
+              {/* Traveling light pulse on the dashed line */}
+              <div
+                className='absolute top-1/2 -translate-y-1/2 h-3 w-16 rounded-full bg-gradient-to-r from-transparent via-indigo-400 to-transparent opacity-80 blur-[2px]'
+                style={{
+                  animation: 'step-light-travel 3s ease-in-out 1.5s infinite',
                 }}
               />
             </div>
@@ -94,8 +101,8 @@ export function HowItWorks() {
                     {step.num}
                   </div>
                 </div>
-                <h3 className='mb-2 text-base font-bold'>{step.title}</h3>
-                <p className='text-muted-foreground max-w-[220px] text-sm leading-relaxed'>
+                <h3 className='mb-2 text-lg font-bold'>{step.title}</h3>
+                <p className='text-muted-foreground max-w-[240px] text-[15px] leading-relaxed'>
                   {step.desc}
                 </p>
               </AnimateInView>
@@ -103,11 +110,17 @@ export function HowItWorks() {
           </div>
         </div>
 
-        {/* Inject keyframe animation */}
+        {/* Inject keyframe animations */}
         <style>{`
           @keyframes step-line-grow {
             from { transform: scaleX(0); }
             to { transform: scaleX(1); }
+          }
+          @keyframes step-light-travel {
+            0% { left: -4rem; opacity: 0; }
+            10% { opacity: 0.8; }
+            90% { opacity: 0.8; }
+            100% { left: calc(100% + 4rem); opacity: 0; }
           }
         `}</style>
       </div>

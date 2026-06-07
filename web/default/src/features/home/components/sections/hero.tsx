@@ -41,11 +41,11 @@ function ProviderLogo({ provider }: { provider: Provider }) {
     )
   }
   return (
-    <div className='flex size-16 items-center justify-center rounded-2xl backdrop-blur-md bg-white/40 shadow-sm border border-white/30 transition-all duration-300 hover:-translate-y-1 hover:shadow-md'>
+    <div className='flex size-16 items-center justify-center rounded-2xl backdrop-blur-md bg-white/40 shadow-sm border border-white/30 transition-all duration-300 hover:-translate-y-1 hover:shadow-md hover:scale-110'>
       <img
         src={provider.logo}
         alt={provider.name}
-        className='size-8 object-contain opacity-80 transition-all duration-300 hover:opacity-100 hover:drop-shadow-[0_0_6px_rgba(99,102,241,0.5)]'
+        className='size-8 object-contain transition-all duration-300'
         onError={() => setHasError(true)}
       />
     </div>
@@ -62,7 +62,7 @@ export function Hero(props: HeroProps) {
   const { t } = useTranslation()
 
   return (
-    <section className='relative z-10 flex flex-col items-center overflow-hidden px-6 pt-28 pb-16 md:pt-36 md:pb-24 dark:bg-[#0a0a0f]'>
+    <section className='relative z-10 flex flex-col items-center overflow-hidden px-6 pt-36 pb-20 md:pt-44 md:pb-28 dark:bg-[#0a0a0f]'>
       {/* Light mode gradient — pastel aurora */}
       <div
         aria-hidden
@@ -112,22 +112,22 @@ export function Hero(props: HeroProps) {
         </div>
         {/* Main title */}
         <h1
-          className='landing-animate-fade-up text-[clamp(2rem,5.5vw,3.5rem)] leading-[1.15] font-bold tracking-tight'
+          className='landing-animate-fade-up text-[clamp(2.25rem,6vw,4rem)] leading-[1.1] font-bold tracking-tight'
           style={{ animationDelay: '80ms' }}
         >
-          <span className='whitespace-nowrap'>{t('Aggregating Top Chinese AI Models')}</span>
+          <span className='whitespace-nowrap'>{t('Aggregating the World\'s Top AI Models')}</span>
           <br />
           <span className='bg-gradient-to-r from-indigo-500 via-violet-400 to-purple-500 bg-clip-text text-transparent'>
-            {t('One API, All Done')}
+            {t('One API, Total Control')}
           </span>
         </h1>
 
         {/* Subtitle */}
         <p
-          className='landing-animate-fade-up text-muted-foreground/80 mt-5 max-w-2xl text-base leading-relaxed opacity-0 md:text-lg'
+          className='landing-animate-fade-up text-muted-foreground/80 mt-6 max-w-3xl text-lg leading-relaxed opacity-0 md:text-xl text-center'
           style={{ animationDelay: '80ms' }}
         >
-          {t('No complex setup, no multiple accounts. One line of code to seamlessly call DeepSeek, Qwen, Kimi and 50+ flagship models. No KYC, high concurrency, pay-as-you-go.')}
+          {t('Enterprise-grade global AI model API relay. One token, unlimited models — empowering research innovation and business growth!')}
         </p>
 
         {/* Buttons */}
@@ -167,35 +167,60 @@ export function Hero(props: HeroProps) {
         <HeroTerminalDemo />
       </div>
 
-      {/* Supported AI Model Providers */}
-      <div className='mx-auto mt-16 max-w-6xl'>
+      {/* Supported AI Model Providers — infinite scroll marquee */}
+      <div className='mx-auto mt-20 w-full max-w-6xl'>
         <AnimateInView className='mb-10 text-center'>
           <p className='text-muted-foreground mb-3 text-xs font-medium tracking-widest uppercase'>
             {t('Supported AI Model Providers')}
           </p>
         </AnimateInView>
 
-        <div className='grid grid-cols-3 md:grid-cols-6 gap-x-4 md:gap-x-24 gap-y-10 place-items-center'>
-          {([
-            { name: 'DeepSeek', logo: '/logos/deepseek.svg' },
-            { name: 'Qwen', logo: '/logos/qwen.svg' },
-            { name: 'Kimi', logo: '/logos/kimi.svg' },
-            { name: 'Zhipu GLM', logo: '/logos/zhipu.svg' },
-            { name: 'MiniMax', logo: '/logos/minimax.svg' },
-            { name: 'Doubao', logo: '/logos/doubao.svg' },
-          ] as Provider[]).map((p, i) => (
-            <AnimateInView
-              key={p.name}
-              delay={i * 80}
-              animation='fade-up'
-              className='flex flex-col items-center gap-3'
-            >
-              <ProviderLogo provider={p} />
-              <span className='text-muted-foreground text-sm font-medium'>
-                {p.name}
-              </span>
-            </AnimateInView>
-          ))}
+        <div className='relative overflow-hidden group/marquee'
+          style={{
+            WebkitMaskImage: 'linear-gradient(to right, transparent, black 10%, black 90%, transparent)',
+            maskImage: 'linear-gradient(to right, transparent, black 10%, black 90%, transparent)',
+          }}
+        >
+
+          {/* Scrolling row — duplicates for seamless loop */}
+          <div className='flex animate-marquee gap-12 w-max'>
+            {(() => {
+              const providers: Provider[] = [
+                { name: 'OpenAI', logo: '/logos/openai.svg' },
+                { name: 'Claude', logo: '/logos/claude.svg' },
+                { name: 'Gemini', logo: '/logos/gemini.svg' },
+                { name: 'Grok', logo: '/logos/grok.svg' },
+                { name: 'DeepSeek', logo: '/logos/deepseek.svg' },
+                { name: 'Qwen', logo: '/logos/qwen.svg' },
+                { name: 'Kimi', logo: '/logos/kimi.svg' },
+                { name: 'Zhipu GLM', logo: '/logos/zhipu.svg' },
+                { name: 'MiniMax', logo: '/logos/minimax.svg' },
+                { name: 'Doubao', logo: '/logos/doubao.svg' },
+                { name: 'Mistral', logo: '/logos/mistral.svg' },
+                { name: 'Llama', logo: '/logos/llama.svg' },
+              ]
+              const row = (offset: number) =>
+                providers.map((p, i) => (
+                  <div
+                    key={`${offset}-${p.name}`}
+                    className='logo-item flex flex-col items-center gap-3'
+                    style={{ animationDelay: `${(offset * providers.length + i) * 80}ms` }}
+                  >
+                    <ProviderLogo provider={p} />
+                    <span className='text-muted-foreground text-sm font-medium whitespace-nowrap'>
+                      {p.name}
+                    </span>
+                  </div>
+                ))
+              return (
+                <>
+                  {row(0)}
+                  {row(1)}
+                  {row(2)}
+                </>
+              )
+            })()}
+          </div>
         </div>
       </div>
     </section>

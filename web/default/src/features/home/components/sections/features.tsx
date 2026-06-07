@@ -30,62 +30,55 @@ export function Features(_props: FeaturesProps) {
 
   const cards = [
     {
-      id: 'network',
-      span: 'md:col-span-2',
+      id: 'unified-api',
       icon: <Zap className='size-6' strokeWidth={1.5} />,
       iconBg: 'bg-amber-50 dark:bg-amber-500/10',
       iconColor: 'text-amber-600 dark:text-amber-400',
-      title: t('Global Network, Lightning Fast'),
-      desc: t('High-performance API gateway deployed overseas with dedicated lines to mainland China server clusters. Solves cross-border high latency and packet loss, ensuring smooth streaming output (Stream).'),
+      title: t('Unified API, Seamless Access to Global Top Compute'),
+      desc: t('NovaAPI deeply integrates the world\'s leading open-source and closed-source AI models, covering cutting-edge deep reasoning, ultra-fast text generation, and multimodal capabilities. No complex configuration needed — just one integration and a single line of code change (fully OpenAI-compatible) to freely switch between top-tier models. Empower your app with multi-model synergy and say goodbye to platform lock-in forever.'),
     },
     {
-      id: 'payment',
-      span: 'md:col-span-1',
+      id: 'cost',
       icon: <CreditCard className='size-5' strokeWidth={1.5} />,
       iconBg: 'bg-emerald-50 dark:bg-emerald-500/10',
       iconColor: 'text-emerald-600 dark:text-emerald-400',
-      title: t('Zero-Barrier Payments'),
-      desc: t('Full support for Stripe, PayPal and international credit cards. No Chinese mainland bank account or real-name verification (KYC) required.'),
+      title: t('Scale Effect Eliminates Middleman Markup'),
+      desc: t('No more layered proxies or top-up barriers. Leveraging platform-scale request volume, we partner directly with model providers. NovaAPI ensures authentic, high-fidelity compute resources while passing drastically compressed costs directly to you — whether you\'re experimenting early or deploying at enterprise scale.'),
     },
     {
-      id: 'compatible',
-      span: 'md:col-span-1',
+      id: 'cutting-edge',
       icon: <Code className='size-5' strokeWidth={1.5} />,
       iconBg: 'bg-violet-50 dark:bg-violet-500/10',
       iconColor: 'text-violet-600 dark:text-violet-400',
-      title: t('OpenAI Compatible'),
-      desc: t('No need to restructure your code. Seamlessly migrate your existing AI applications and workflows. One line change to switch.'),
+      title: t('Always One Step Ahead'),
+      desc: t('In the era of explosive AI iteration, time is your greatest competitive edge. NovaAPI\'s agile integration architecture promises day-one support for newly released top-tier models. No long waits, no code rewrites — just seamless access to the latest AI technology, keeping your products on the cutting edge.'),
     },
     {
       id: 'security',
-      span: 'md:col-span-2',
       icon: <Shield className='size-6' strokeWidth={1.5} />,
       iconBg: 'bg-sky-50 dark:bg-sky-500/10',
       iconColor: 'text-sky-600 dark:text-sky-400',
-      title: t('Security & Privacy Compliance'),
-      desc: t('We do not store any conversation or request data. Enterprise-grade high availability (SLA) with dynamic load balancing. Dedicated nodes available for enterprise clients.'),
+      title: t('Rock-Solid Security & Compliance'),
+      desc: t('Your business data and core prompts are your most valuable assets. NovaAPI adheres to a "pure pipeline" principle: beyond the token consumption needed for billing, we never log, intercept, or store any conversation between you and the models. Physical-grade privacy isolation provides the strongest compliance safeguard for your global business.'),
     },
   ]
 
   return (
-    <section className='bg-white dark:bg-background relative z-10 px-6 py-24 md:py-32'>
+    <section className='bg-white dark:bg-background relative z-10 px-6 py-20 md:py-28'>
       <div className='mx-auto max-w-6xl'>
-        <AnimateInView className='mb-16 text-center'>
-          <h2 className='text-2xl leading-tight font-bold tracking-tight md:text-3xl'>
-            {t('An Industrial-Grade Gateway for Global Developers')}
+        <AnimateInView className='mb-12 text-center'>
+          <h2 className='text-3xl leading-tight font-bold tracking-tight md:text-4xl'>
+            {t('Why Choose NovaAPI')}
           </h2>
         </AnimateInView>
 
-        <div className='grid grid-cols-1 gap-4 md:grid-cols-3 md:gap-5'>
+        <div className='grid grid-cols-1 gap-6 md:grid-cols-2 md:gap-7'>
           {cards.map((card, i) => (
             <AnimateInView
               key={card.id}
               delay={i * 80}
               animation='fade-up'
-              className={cn(
-                'group relative flex flex-col overflow-hidden rounded-2xl border border-border/30 bg-background p-6 transition-all duration-500 md:p-7 hover:-translate-y-1 hover:shadow-lg',
-                card.span
-              )}
+              className='group relative flex flex-col overflow-hidden rounded-2xl border border-border/30 bg-background p-7 transition-all duration-500 md:p-8 hover:-translate-y-1 hover:shadow-lg'
             >
               <div className={cn(
                 'flex size-12 items-center justify-center rounded-xl mb-4 transition-all duration-300 group-hover:scale-110 group-hover:shadow-md',
@@ -93,8 +86,8 @@ export function Features(_props: FeaturesProps) {
               )}>
                 {card.icon}
               </div>
-              <h3 className='mb-2 text-base font-bold'>{card.title}</h3>
-              <p className='text-foreground/65 text-sm leading-relaxed'>
+              <h3 className='mb-3 text-lg font-bold'>{card.title}</h3>
+              <p className='text-foreground/70 text-[15px] leading-relaxed'>
                 {card.desc}
               </p>
             </AnimateInView>

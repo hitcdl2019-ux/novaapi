@@ -65,7 +65,6 @@ export function Home() {
 
   return (
     <PublicLayout showMainContainer={false}>
-      <div className='bg-white h-14 w-full' />
       <Hero isAuthenticated={isAuthenticated} docsLink={docsLink} />
       <Features />
       <HowItWorks />
