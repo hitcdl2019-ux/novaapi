@@ -27,7 +27,6 @@ import { SectionPageLayout } from '@/components/layout'
 import { FadeIn } from '@/components/page-transition'
 import { ModelsChartPreferences } from './components/models/models-chart-preferences'
 import { ModelsFilter } from './components/models/models-filter-dialog'
-import { OverviewDashboard } from './components/overview/overview-dashboard'
 import { DEFAULT_TIME_GRANULARITY } from './constants'
 import {
   buildDefaultDashboardFilters,
@@ -134,10 +133,6 @@ const SECTION_META: Record<
   DashboardSectionId,
   { titleKey: string; descriptionKey: string }
 > = {
-  overview: {
-    titleKey: 'Overview',
-    descriptionKey: 'View dashboard overview and statistics',
-  },
   models: {
     titleKey: 'Model Call Analytics',
     descriptionKey: 'View model call count analytics and charts',
@@ -189,12 +184,12 @@ export function Dashboard() {
     []
   )
 
-  const meta = SECTION_META[activeSection] ?? SECTION_META.overview
+  const meta = SECTION_META[activeSection] ?? SECTION_META.models
   const isAdmin = Boolean(userRole && userRole >= ROLE.ADMIN)
   const visibleSections = useMemo(
     () =>
       DASHBOARD_SECTION_IDS.filter(
-        (section) => section !== 'overview' && (section !== 'users' || isAdmin)
+        (section) => section !== 'users' || isAdmin
       ),
     [isAdmin]
   )
@@ -207,8 +202,7 @@ export function Dashboard() {
     },
     [navigate]
   )
-  const showSectionTabs =
-    activeSection !== 'overview' && visibleSections.length > 1
+  const showSectionTabs = visibleSections.length > 1
   const modelActions =
     activeSection === 'models' ? (
       <>
@@ -232,7 +226,6 @@ export function Dashboard() {
       </SectionPageLayout.Description>
       <SectionPageLayout.Content>
         <div className='space-y-3 sm:space-y-4'>
-          {activeSection !== 'overview' && (
             <div className='flex flex-wrap items-center justify-between gap-1.5 sm:gap-2'>
               {showSectionTabs ? (
                 <Tabs value={activeSection} onValueChange={handleSectionChange}>
@@ -253,8 +246,6 @@ export function Dashboard() {
                 </div>
               )}
             </div>
-          )}
-          {activeSection === 'overview' && <OverviewDashboard />}
           {activeSection === 'models' && (
             <>
               <FadeIn>

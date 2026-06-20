@@ -16,7 +16,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { Zap, CreditCard, Code, Shield } from 'lucide-react'
+import { Globe, CreditCard, Zap, Shield } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { AnimateInView } from '@/components/animate-in-view'
 import { cn } from '@/lib/utils'
@@ -30,63 +30,63 @@ export function Features(_props: FeaturesProps) {
 
   const cards = [
     {
-      id: 'unified-api',
-      icon: <Zap className='size-6' strokeWidth={1.5} />,
-      iconBg: 'bg-amber-50 dark:bg-amber-500/10',
-      iconColor: 'text-amber-600 dark:text-amber-400',
-      title: t('Unified API, Seamless Access to Global Top Compute'),
-      desc: t('NovaAPI deeply integrates the world\'s leading open-source and closed-source AI models, covering cutting-edge deep reasoning, ultra-fast text generation, and multimodal capabilities. No complex configuration needed — just one integration and a single line of code change (fully OpenAI-compatible) to freely switch between top-tier models. Empower your app with multi-model synergy and say goodbye to platform lock-in forever.'),
+      id: 'simple-access',
+      icon: <Globe className='size-6' strokeWidth={1.5} />,
+      iconBg: 'bg-indigo-50 dark:bg-indigo-500/10',
+      iconColor: 'text-indigo-600 dark:text-indigo-400',
+      title: t('一行代码，极简接入'),
+      desc: t('100% 兼容 OpenAI 协议。无需重构代码或招聘算法专家，替换 URL 即可无缝切换全球顶级模型，今天配置，今天上线。'),
     },
     {
       id: 'cost',
       icon: <CreditCard className='size-5' strokeWidth={1.5} />,
       iconBg: 'bg-emerald-50 dark:bg-emerald-500/10',
       iconColor: 'text-emerald-600 dark:text-emerald-400',
-      title: t('Scale Effect Eliminates Middleman Markup'),
-      desc: t('No more layered proxies or top-up barriers. Leveraging platform-scale request volume, we partner directly with model providers. NovaAPI ensures authentic, high-fidelity compute resources while passing drastically compressed costs directly to you — whether you\'re experimenting early or deploying at enterprise scale.'),
+      title: t('按量付费，极致控本'),
+      desc: t('用多少付多少，无隐形门槛、无月租绑定。凭借原厂直采优势，为您提供远低于常规渠道的价格，让试错成本降至最低。'),
     },
     {
-      id: 'cutting-edge',
-      icon: <Code className='size-5' strokeWidth={1.5} />,
-      iconBg: 'bg-violet-50 dark:bg-violet-500/10',
-      iconColor: 'text-violet-600 dark:text-violet-400',
-      title: t('Always One Step Ahead'),
-      desc: t('In the era of explosive AI iteration, time is your greatest competitive edge. NovaAPI\'s agile integration architecture promises day-one support for newly released top-tier models. No long waits, no code rewrites — just seamless access to the latest AI technology, keeping your products on the cutting edge.'),
+      id: 'smart-routing',
+      icon: <Zap className='size-6' strokeWidth={1.5} />,
+      iconBg: 'bg-amber-50 dark:bg-amber-500/10',
+      iconColor: 'text-amber-600 dark:text-amber-400',
+      title: t('智能路由，永不断网'),
+      desc: t('独创多渠道灾备机制。当某个官方接口拥堵或宕机时，系统将在毫秒级无感切换至备用高速节点，无需您熬夜运维。'),
     },
     {
-      id: 'security',
+      id: 'privacy',
       icon: <Shield className='size-6' strokeWidth={1.5} />,
       iconBg: 'bg-sky-50 dark:bg-sky-500/10',
       iconColor: 'text-sky-600 dark:text-sky-400',
-      title: t('Rock-Solid Security & Compliance'),
-      desc: t('Your business data and core prompts are your most valuable assets. NovaAPI adheres to a "pure pipeline" principle: beyond the token consumption needed for billing, we never log, intercept, or store any conversation between you and the models. Physical-grade privacy isolation provides the strongest compliance safeguard for your global business.'),
+      title: t('纯粹管道，隐私无忧'),
+      desc: t('坚持物理级隐私隔离。除计费外，绝不记录、不拦截、不存储任何对话与交互数据，用最高标准守护您的商业机密。'),
     },
   ]
 
   return (
-    <section className='bg-white dark:bg-background relative z-10 px-6 py-20 md:py-28'>
+    <section className='bg-white dark:bg-background relative z-10 px-6 py-16 md:py-24'>
       <div className='mx-auto max-w-6xl'>
-        <AnimateInView className='mb-12 text-center'>
+        <AnimateInView className='mb-10 text-center'>
           <h2 className='text-3xl leading-tight font-bold tracking-tight md:text-4xl'>
-            {t('Why Choose NovaAPI')}
+            {t('选择 NovaAPI 的理由')}
           </h2>
         </AnimateInView>
 
-        <div className='grid grid-cols-1 gap-6 md:grid-cols-2 md:gap-7'>
+        <div className='grid grid-cols-1 gap-5 md:grid-cols-2 md:gap-6'>
           {cards.map((card, i) => (
             <AnimateInView
               key={card.id}
               delay={i * 80}
               animation='fade-up'
-              className='group relative flex flex-col overflow-hidden rounded-2xl border border-border/30 bg-background p-7 transition-all duration-500 md:p-8 hover:-translate-y-1 hover:shadow-lg'
+              className='group relative flex flex-col overflow-hidden rounded-2xl border border-border/30 bg-background p-6 transition-all duration-500 md:p-7 hover:-translate-y-1 hover:shadow-lg'
             >
               <div className={cn(
-                'flex size-12 items-center justify-center rounded-xl mb-4 transition-all duration-300 group-hover:scale-110 group-hover:shadow-md',
+                'flex size-12 items-center justify-center rounded-xl mb-3 transition-all duration-300 group-hover:scale-110 group-hover:shadow-md',
                 card.iconBg, card.iconColor
               )}>
                 {card.icon}
               </div>
-              <h3 className='mb-3 text-lg font-bold'>{card.title}</h3>
+              <h3 className='mb-2 text-lg font-bold'>{card.title}</h3>
               <p className='text-foreground/70 text-[15px] leading-relaxed'>
                 {card.desc}
               </p>

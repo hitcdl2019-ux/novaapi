@@ -18,7 +18,6 @@ For commercial licensing, please contact support@quantumnous.com
 */
 import {
   LayoutDashboard,
-  Activity,
   Key,
   FileText,
   Wallet,
@@ -56,7 +55,7 @@ export function useSidebarData(): SidebarData {
         title: t('Chat'),
         items: [
           {
-            title: t('Playground'),
+            title: t('Chat'),
             url: '/playground',
             icon: FlaskConical,
           },
@@ -71,11 +70,6 @@ export function useSidebarData(): SidebarData {
         id: 'general',
         title: t('General'),
         items: [
-          {
-            title: t('Overview'),
-            url: '/dashboard/overview',
-            icon: Activity,
-          },
           {
             title: t('Dashboard'),
             url: '/dashboard/models',

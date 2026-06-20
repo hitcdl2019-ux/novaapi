@@ -47,6 +47,7 @@ export interface PricingTableProps {
   tokenUnit?: TokenUnit
   showRechargePrice?: boolean
   onModelClick?: (modelName: string) => void
+  isAdmin?: boolean
 }
 
 export function PricingTable(props: PricingTableProps) {
@@ -59,6 +60,7 @@ export function PricingTable(props: PricingTableProps) {
     tokenUnit = DEFAULT_TOKEN_UNIT,
     showRechargePrice = false,
     onModelClick,
+    isAdmin = false,
   } = props
 
   const [pagination, setPagination] = useState<PaginationState>({
@@ -128,8 +130,12 @@ export function PricingTable(props: PricingTableProps) {
               table.getRowModel().rows.map((row) => (
                 <TableRow
                   key={row.id}
-                  onClick={() => handleRowClick(row.original)}
-                  className='hover:bg-muted/30 cursor-pointer transition-colors'
+                  onClick={isAdmin ? () => handleRowClick(row.original) : undefined}
+                  className={
+                    isAdmin
+                      ? 'hover:bg-muted/30 cursor-pointer transition-colors'
+                      : ''
+                  }
                 >
                   {row.getVisibleCells().map((cell) => (
                     <TableCell key={cell.id}>

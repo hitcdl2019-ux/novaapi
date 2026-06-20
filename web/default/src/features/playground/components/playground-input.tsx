@@ -49,7 +49,7 @@ import {
   type PromptInputMessage,
 } from '@/components/ai-elements/prompt-input'
 import { Suggestion, Suggestions } from '@/components/ai-elements/suggestion'
-import { ModelGroupSelector } from '@/components/model-group-selector'
+import { ModelGroupSelector, ModelSelector } from '@/components/model-group-selector'
 import type { ModelOption, GroupOption } from '../types'
 
 interface PlaygroundInputProps {
@@ -66,6 +66,7 @@ interface PlaygroundInputProps {
   onGroupChange: (value: string) => void
   webSearchEnabled?: boolean
   onWebSearchToggle?: () => void
+  isAdmin?: boolean
 }
 
 const suggestions = [
@@ -91,6 +92,7 @@ export function PlaygroundInput({
   webSearchEnabled = false,
   onWebSearchToggle,
   onGroupChange,
+  isAdmin = false,
 }: PlaygroundInputProps) {
   const { t } = useTranslation()
   const [text, setText] = useState('')
@@ -187,15 +189,24 @@ export function PlaygroundInput({
           </PromptInputTools>
 
           <div className='flex items-center gap-1.5 md:gap-2'>
-            <ModelGroupSelector
-              selectedModel={modelValue}
-              models={models}
-              onModelChange={onModelChange}
-              selectedGroup={groupValue}
-              groups={groups}
-              onGroupChange={onGroupChange}
-              disabled={isModelSelectDisabled || isGroupSelectDisabled}
-            />
+            {isAdmin ? (
+              <ModelGroupSelector
+                selectedModel={modelValue}
+                models={models}
+                onModelChange={onModelChange}
+                selectedGroup={groupValue}
+                groups={groups}
+                onGroupChange={onGroupChange}
+                disabled={isModelSelectDisabled || isGroupSelectDisabled}
+              />
+            ) : (
+              <ModelSelector
+                selectedModel={modelValue}
+                models={models}
+                onModelChange={onModelChange}
+                disabled={isModelSelectDisabled}
+              />
+            )}
 
             {isGenerating && onStop ? (
               <PromptInputButton

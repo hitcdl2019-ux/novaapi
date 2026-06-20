@@ -16,287 +16,119 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { Fragment, useMemo } from 'react'
 import { Link } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
 import { cn } from '@/lib/utils'
 import { useSystemConfig } from '@/hooks/use-system-config'
-import { useStatus } from '@/hooks/use-status'
 
-interface FooterLink {
-  text: string
-  href: string
-}
+const NovaAPISVG = () => (
+  <svg
+    xmlns='http://www.w3.org/2000/svg'
+    width='72'
+    height='72'
+    viewBox='0 0 24 24'
+    fill='none'
+    stroke='currentColor'
+    strokeWidth='2'
+    strokeLinecap='round'
+    strokeLinejoin='round'
+  >
+    <path d='M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71' />
+    <path d='M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71' />
+  </svg>
+)
 
-interface FooterColumnProps {
-  title: string
-  links: FooterLink[]
-}
-
-interface FooterProps {
-  logo?: string
-  name?: string
-  columns?: FooterColumnProps[]
-  copyright?: string
-  className?: string
-}
-
-const NEW_API_FOOTER_ATTRIBUTION_KEY = [
-  'footer',
-  'new' + 'api',
-  'projectAttributionSuffix',
-].join('.')
-
-function FooterLinkItem(props: { link: FooterLink }) {
+export function Footer() {
   const { t } = useTranslation()
-  const isExternal = props.link.href.startsWith('http')
-  const label = t(props.link.text)
+  const { systemName, logo: systemLogo, footerHtml } = useSystemConfig()
 
-  if (isExternal) {
-    return (
-      <a
-        href={props.link.href}
-        target='_blank'
-        rel='noopener noreferrer'
-        className='text-muted-foreground hover:text-foreground text-sm transition-colors duration-200'
-      >
-        {label}
-      </a>
-    )
-  }
-
-  return (
-    <Link
-      to={props.link.href}
-      className='text-muted-foreground hover:text-foreground text-sm transition-colors duration-200'
-    >
-      {label}
-    </Link>
-  )
-}
-
-// Renders User Agreement / Privacy Policy links inline with the parent's
-// copyright row when either is configured in System Settings → Site. Emits
-// fragmented siblings so the parent flex container's gap controls spacing.
-function LegalLinks(props: { leadingSeparator?: boolean }) {
-  const { t } = useTranslation()
-  const { status } = useStatus()
-  const items: { key: string; label: string; href: string }[] = []
-  if (status?.user_agreement_enabled) {
-    items.push({
-      key: 'user-agreement',
-      label: t('User Agreement'),
-      href: '/user-agreement',
-    })
-  }
-  if (status?.privacy_policy_enabled) {
-    items.push({
-      key: 'privacy-policy',
-      label: t('Privacy Policy'),
-      href: '/privacy-policy',
-    })
-  }
-  if (items.length === 0) {
-    return null
-  }
-  return (
-    <>
-      {items.map((item, index) => (
-        <Fragment key={item.key}>
-          {(props.leadingSeparator || index > 0) && (
-            <span aria-hidden='true' className='text-muted-foreground/30'>
-              ·
-            </span>
-          )}
-          <Link
-            to={item.href}
-            className='hover:text-foreground transition-colors duration-200'
-          >
-            {item.label}
-          </Link>
-        </Fragment>
-      ))}
-    </>
-  )
-}
-
-// inline=true returns just the inner span for composition in a parent flex
-// row. inline=false wraps in a centered/right-aligned div (default).
-function ProjectAttribution(props: { currentYear: number; inline?: boolean }) {
-  const { t } = useTranslation()
-  const content = (
-    <span className='text-muted-foreground/45'>
-      &copy; {props.currentYear}{' '}
-      <a
-        href='https://github.com/QuantumNous/new-api'
-        target='_blank'
-        rel='noopener noreferrer'
-        className='text-foreground/70 hover:text-foreground font-medium transition-colors'
-      >
-        {t('New API')}
-      </a>
-      . {t(NEW_API_FOOTER_ATTRIBUTION_KEY)}
-    </span>
-  )
-  if (props.inline) {
-    return content
-  }
-  return (
-    <div className='text-muted-foreground/45 text-center text-xs sm:text-right'>
-      {content}
-    </div>
-  )
-}
-
-export function Footer(props: FooterProps) {
-  const { t } = useTranslation()
-  const {
-    systemName,
-    logo: systemLogo,
-    footerHtml,
-    demoSiteEnabled,
-  } = useSystemConfig()
-
-  const displayLogo = systemLogo || props.logo || '/logo.png'
-  const displayName = systemName || props.name || 'NovaAPI'
-  const isDemoSiteMode = Boolean(demoSiteEnabled)
+  const displayName = systemName || 'NovaAPI'
   const currentYear = new Date().getFullYear()
 
-  const fallbackColumns = useMemo<FooterColumnProps[]>(
-    () => [
-      {
-        title: t('footer.columns.about.title'),
-        links: [
-          {
-            text: t('footer.columns.about.links.aboutProject'),
-            href: 'https://docs.newapi.pro/wiki/project-introduction/',
-          },
-          {
-            text: t('footer.columns.about.links.contact'),
-            href: 'https://docs.newapi.pro/support/community-interaction/',
-          },
-          {
-            text: t('footer.columns.about.links.features'),
-            href: 'https://docs.newapi.pro/wiki/features-introduction/',
-          },
-        ],
-      },
-      {
-        title: t('footer.columns.docs.title'),
-        links: [
-          {
-            text: t('footer.columns.docs.links.quickStart'),
-            href: 'https://docs.newapi.pro/getting-started/',
-          },
-          {
-            text: t('footer.columns.docs.links.installation'),
-            href: 'https://docs.newapi.pro/installation/',
-          },
-          {
-            text: t('footer.columns.docs.links.apiDocs'),
-            href: 'https://docs.newapi.pro/api/',
-          },
-        ],
-      },
-      {
-        title: t('footer.columns.related.title'),
-        links: [
-          {
-            text: t('footer.columns.related.links.oneApi'),
-            href: 'https://github.com/songquanpeng/one-api',
-          },
-          {
-            text: t('footer.columns.related.links.midjourney'),
-            href: 'https://github.com/novicezk/midjourney-proxy',
-          },
-          {
-            text: t('footer.columns.related.links.newApiKeyTool'),
-            href: 'https://github.com/Calcium-Ion/new-api-key-tool',
-          },
-        ],
-      },
-    ],
-    [t]
-  )
-
-  const displayColumns = props.columns ?? fallbackColumns
-
+  // Custom HTML footer mode (backwards-compatible)
   if (footerHtml) {
     return (
-      <footer
-        className={cn(
-          'border-border/40 relative z-10 border-t',
-          props.className
-        )}
-      >
+      <footer className='border-border/40 relative z-10 border-t'>
         <div className='mx-auto w-full max-w-6xl px-6 py-5'>
-          <div className='bg-muted/20 border-border/50 flex flex-col items-center justify-between gap-4 rounded-2xl border px-4 py-4 backdrop-blur-sm sm:flex-row sm:px-5'>
-            <div
-              className='custom-footer text-muted-foreground min-w-0 text-center text-sm sm:text-left'
-              dangerouslySetInnerHTML={{ __html: footerHtml }}
-            />
-            <div className='border-border/60 flex w-full flex-wrap items-center justify-center gap-x-3 gap-y-1 border-t pt-4 text-muted-foreground/45 text-xs sm:w-auto sm:justify-end sm:border-t-0 sm:border-l sm:pt-0 sm:pl-5'>
-              <LegalLinks />
-              <ProjectAttribution currentYear={currentYear} inline />
-            </div>
-          </div>
+          <div
+            className='custom-footer text-muted-foreground text-center text-sm'
+            dangerouslySetInnerHTML={{ __html: footerHtml }}
+          />
         </div>
       </footer>
     )
   }
 
   return (
-    <footer
-      className={cn('border-border/40 relative z-10 border-t', props.className)}
-    >
-      <div className='mx-auto max-w-6xl px-6 py-12 md:py-16'>
-        <div className='flex flex-col justify-between gap-10 md:flex-row md:gap-16'>
-          {/* Brand column */}
-          <div className='shrink-0'>
-            <Link to='/' className='group flex items-center gap-2.5'>
-              <img
-                src={displayLogo}
-                alt={displayName}
-                className='h-20 w-auto max-w-[432px] rounded object-contain'
-              />
+    <footer className='border-t border-border/40 bg-background mt-12 py-12'>
+      <div className='mx-auto max-w-6xl px-6 grid grid-cols-1 md:grid-cols-3 gap-8 md:gap-12'>
+
+        {/* Left: Brand */}
+        <div className='flex flex-col space-y-0'>
+          <Link to='/' className='text-foreground hover:opacity-80 transition-opacity'>
+            {systemLogo ? (
+              <img src={systemLogo} alt={displayName} className='h-[4.5rem] w-auto' />
+            ) : (
+              <NovaAPISVG />
+            )}
+          </Link>
+          <p className='text-sm text-muted-foreground leading-relaxed ml-4'>
+            {t('大模型聚合平台')}
+            <br />
+            {t('一站式接入所有主流大模型')}
+          </p>
+        </div>
+
+        {/* Middle: Nav */}
+        <div className='flex flex-col space-y-4'>
+          <h3 className='font-bold text-foreground text-sm tracking-widest pt-5'>
+            {t('导航')}
+          </h3>
+          <nav className='flex flex-col space-y-3'>
+            <Link
+              to='/pricing'
+              className='text-sm text-muted-foreground hover:text-primary transition-colors w-fit'
+            >
+              {t('模型中心')}
             </Link>
-            <p className='text-muted-foreground/60 mt-3 max-w-[200px] text-xs leading-relaxed'>
-              {t('Powerful API Management Platform')}
-            </p>
-          </div>
-
-          {/* Links columns */}
-          {isDemoSiteMode && (
-            <div className='grid grid-cols-3 gap-8 md:gap-16'>
-              {displayColumns.map((column, index) => (
-                <div key={index}>
-                  <p className='text-muted-foreground/50 mb-3 text-xs font-medium tracking-wider uppercase'>
-                    {t(column.title)}
-                  </p>
-                  <ul className='space-y-2.5'>
-                    {column.links.map((link, linkIndex) => (
-                      <li key={linkIndex}>
-                        <FooterLinkItem link={link} />
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              ))}
-            </div>
-          )}
+            <a
+              href='https://docs.novaapis.com'
+              target='_blank'
+              rel='noreferrer'
+              className='text-sm text-muted-foreground hover:text-primary transition-colors w-fit'
+            >
+              {t('文档中心')}
+            </a>
+          </nav>
         </div>
 
-        {/* Copyright + optional legal links inline on the left, project
-            attribution on the right; wraps on narrow screens. */}
-        <div className='border-border/30 mt-12 flex flex-col items-center gap-x-3 gap-y-2 border-t pt-6'>
-          <div className='text-muted-foreground/40 flex flex-wrap items-center justify-center gap-x-2 gap-y-1 text-xs'>
-            <span>
-              &copy; {currentYear} {displayName}.{' '}
-              {props.copyright ?? t('footer.defaultCopyright')}
-            </span>
-            <LegalLinks leadingSeparator />
-          </div>
+        {/* Right: Legal */}
+        <div className='flex flex-col space-y-4'>
+          <h3 className='font-bold text-foreground text-sm tracking-widest pt-5'>
+            {t('法律')}
+          </h3>
+          <nav className='flex flex-col space-y-3'>
+            <Link
+              to='/user-agreement'
+              className='text-sm text-muted-foreground hover:text-primary transition-colors w-fit'
+            >
+              {t('服务条款')}
+            </Link>
+            <Link
+              to='/privacy-policy'
+              className='text-sm text-muted-foreground hover:text-primary transition-colors w-fit'
+            >
+              {t('隐私政策')}
+            </Link>
+          </nav>
         </div>
+
+      </div>
+
+      {/* Bottom copyright */}
+      <div className='mx-auto max-w-6xl px-6 mt-12 pt-8 border-t border-border/30 flex flex-col items-center text-xs text-muted-foreground/45'>
+        <p>&copy; {currentYear} {displayName}. {t('All rights reserved.')}</p>
+        <p className='mt-1'>{t('Built for Global Developers.')}</p>
       </div>
     </footer>
   )

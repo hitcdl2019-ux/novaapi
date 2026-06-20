@@ -388,6 +388,12 @@ func getModelRequest(c *gin.Context) (*ModelRequest, bool, error) {
 		modelRequest.Model = req.Model
 		modelRequest.Group = req.Group
 		common.SetContextKey(c, constant.ContextKeyTokenGroup, modelRequest.Group)
+		// Image generation models routed through playground chat must be
+		// forwarded to the images/generations endpoint for correct relaying.
+		if common.IsImageGenerationModel(modelRequest.Model) {
+			c.Request.URL.Path = "/v1/images/generations"
+			c.Set("relay_mode", relayconstant.RelayModeImagesGenerations)
+		}
 	}
 
 	if strings.HasPrefix(c.Request.URL.Path, "/v1/responses/compact") && modelRequest.Model != "" {

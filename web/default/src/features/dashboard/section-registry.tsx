@@ -24,12 +24,6 @@ import { createSectionRegistry } from '@/features/system-settings/utils/section-
  */
 const DASHBOARD_SECTIONS = [
   {
-    id: 'overview',
-    titleKey: 'Overview',
-    descriptionKey: 'View dashboard overview and statistics',
-    build: () => null,
-  },
-  {
     id: 'models',
     titleKey: 'Model Call Analytics',
     descriptionKey: 'View model call count analytics and charts',
@@ -54,7 +48,7 @@ const dashboardRegistry = createSectionRegistry<
   []
 >({
   sections: DASHBOARD_SECTIONS,
-  defaultSection: 'overview',
+  defaultSection: 'models',
   basePath: '/dashboard',
   urlStyle: 'path',
 })

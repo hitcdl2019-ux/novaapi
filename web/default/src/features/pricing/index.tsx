@@ -20,6 +20,7 @@ import { useCallback, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { PublicLayout } from '@/components/layout'
 import { PageTransition } from '@/components/page-transition'
+import { useIsAdmin } from '@/hooks/use-admin'
 import {
   LoadingSkeleton,
   EmptyState,
@@ -36,6 +37,7 @@ import { usePricingData } from './hooks/use-pricing-data'
 
 export function Pricing() {
   const { t } = useTranslation()
+  const isAdmin = useIsAdmin()
   const [selectedModelName, setSelectedModelName] = useState<string | null>(
     null
   )
@@ -82,8 +84,9 @@ export function Pricing() {
   } = useFilters(models || [])
 
   const handleModelClick = useCallback((modelName: string) => {
+    if (!isAdmin) return
     setSelectedModelName(modelName)
-  }, [])
+  }, [isAdmin])
 
   const selectedModel = useMemo(
     () =>
@@ -128,6 +131,7 @@ export function Pricing() {
           usdExchangeRate={usdExchangeRate}
           tokenUnit={tokenUnit}
           showRechargePrice={showRechargePrice}
+          isAdmin={isAdmin}
         />
       )
     }
@@ -140,6 +144,7 @@ export function Pricing() {
         tokenUnit={tokenUnit}
         showRechargePrice={showRechargePrice}
         onModelClick={handleModelClick}
+        isAdmin={isAdmin}
       />
     )
   }
@@ -217,6 +222,7 @@ export function Pricing() {
               models={models || []}
               hasActiveFilters={hasActiveFilters}
               onClearFilters={clearFilters}
+              isAdmin={isAdmin}
               className='hover-scrollbar sticky top-4 hidden max-h-[calc(100dvh-2rem)] self-start overflow-y-auto xl:block'
             />
 
@@ -256,7 +262,7 @@ export function Pricing() {
             </main>
           </div>
 
-          {selectedModel && (
+          {isAdmin && selectedModel && (
             <ModelDetailsDrawer
               open={Boolean(selectedModel)}
               onOpenChange={(open) => {

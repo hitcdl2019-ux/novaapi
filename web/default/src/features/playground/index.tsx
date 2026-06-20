@@ -16,8 +16,9 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
+import { useIsAdmin } from '@/hooks/use-admin'
 import { getUserModels, getUserGroups } from './api'
 import { PlaygroundChat } from './components/playground-chat'
 import { PlaygroundInput } from './components/playground-input'
@@ -26,6 +27,7 @@ import { createUserMessage, createLoadingAssistantMessage } from './lib'
 import type { Message as MessageType } from './types'
 
 export function Playground() {
+  const isAdmin = useIsAdmin()
   const {
     config,
     parameterEnabled,
@@ -38,8 +40,14 @@ export function Playground() {
     updateConfig,
   } = usePlaygroundState()
 
+  // For non-admin users, strip group so backend defaults to user's own group
+  const effectiveConfig = useMemo(
+    () => (isAdmin ? config : { ...config, group: '' }),
+    [isAdmin, config]
+  )
+
   const { sendChat, stopGeneration, isGenerating } = useChatHandler({
-    config,
+    config: effectiveConfig,
     parameterEnabled,
     onMessageUpdate: updateMessages,
   })
@@ -197,6 +205,7 @@ export function Playground() {
           onSubmit={handleSendMessage}
           webSearchEnabled={config.web_search}
           onWebSearchToggle={() => updateConfig('web_search', !config.web_search)}
+          isAdmin={isAdmin}
         />
       </div>
     </div>
