@@ -68,9 +68,18 @@ export type NavChatPresets = BaseNavItem & {
 }
 
 /**
+ * Playground conversation history type - dynamically loaded from localStorage
+ */
+export type NavPlaygroundHistory = BaseNavItem & {
+  type: 'playground-history'
+  url?: never
+  items?: never
+}
+
+/**
  * Navigation item union type
  */
-export type NavItem = NavCollapsible | NavLink | NavChatPresets
+export type NavItem = NavCollapsible | NavLink | NavChatPresets | NavPlaygroundHistory
 
 /**
  * Navigation group type - a group of navigation items in sidebar

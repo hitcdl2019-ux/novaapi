@@ -67,6 +67,7 @@ func ImageHelper(c *gin.Context, info *relaycommon.RelayInfo) (newAPIError *type
 			if err != nil {
 				return types.NewError(err, types.ErrorCodeConvertRequestFailed, types.ErrOptionWithSkipRetry())
 			}
+			common.SysLog(fmt.Sprintf("[image_handler] marshaled body (%d bytes): %s", len(jsonData), string(jsonData)))
 
 			// apply param override
 			if len(info.ParamOverride) > 0 {
@@ -96,7 +97,7 @@ func ImageHelper(c *gin.Context, info *relaycommon.RelayInfo) (newAPIError *type
 				// replicate channel returns 201 Created when using Prefer: wait, treat it as success.
 				httpResp.StatusCode = http.StatusOK
 			} else {
-				newAPIError = service.RelayErrorHandler(c.Request.Context(), httpResp, false)
+				newAPIError = service.RelayErrorHandler(c.Request.Context(), httpResp, true)
 				// reset status code 重置状态码
 				service.ResetStatusCode(newAPIError, statusCodeMappingStr)
 				return newAPIError

@@ -71,7 +71,23 @@ export const STORAGE_KEYS = {
   CONFIG: 'playground_config',
   MESSAGES: 'playground_messages',
   PARAMETER_ENABLED: 'playground_parameter_enabled',
+  CONVERSATIONS: 'playground_conversations',
+  ACTIVE_CONVERSATION: 'playground_active_conversation',
 } as const
+
+// Image generation model patterns (must match backend common/model.go ImageGenerationModels)
+const IMAGE_MODEL_PATTERNS = [
+  'dall-e-',
+  'gpt-image-',
+  'imagen-',
+  'flux-',
+  'flux.1-',
+]
+
+export function isImageModel(model: string): boolean {
+  const lower = model.toLowerCase()
+  return IMAGE_MODEL_PATTERNS.some((p) => lower.includes(p))
+}
 
 // Error messages
 export const ERROR_MESSAGES = {

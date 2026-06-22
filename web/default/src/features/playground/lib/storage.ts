@@ -17,7 +17,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import { STORAGE_KEYS } from '../constants'
-import type { PlaygroundConfig, ParameterEnabled, Message } from '../types'
+import type { PlaygroundConfig, ParameterEnabled, Message, Conversation } from '../types'
 import { sanitizeMessagesOnLoad } from './message-utils'
 
 /**
@@ -130,5 +130,81 @@ export function clearPlaygroundData(): void {
   } catch (error) {
     // eslint-disable-next-line no-console
     console.error('Failed to clear playground data:', error)
+  }
+}
+
+/**
+ * Save a single conversation to localStorage (keyed by id).
+ */
+export function saveConversation(conversation: Conversation): void {
+  try {
+    localStorage.setItem(
+      `${STORAGE_KEYS.CONVERSATIONS}:${conversation.id}`,
+      JSON.stringify(conversation)
+    )
+  } catch (error) {
+    // eslint-disable-next-line no-console
+    console.error('Failed to save conversation:', error)
+  }
+}
+
+/**
+ * Load all conversations from localStorage, sorted by updatedAt descending.
+ */
+export function loadConversations(): Conversation[] {
+  try {
+    const conversations: Conversation[] = []
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i)
+      if (key?.startsWith(`${STORAGE_KEYS.CONVERSATIONS}:`)) {
+        const raw = localStorage.getItem(key)
+        if (raw) {
+          const parsed = JSON.parse(raw) as Conversation
+          if (parsed.id && Array.isArray(parsed.messages)) {
+            conversations.push(parsed)
+          }
+        }
+      }
+    }
+    return conversations.sort((a, b) => b.updatedAt - a.updatedAt)
+  } catch (error) {
+    // eslint-disable-next-line no-console
+    console.error('Failed to load conversations:', error)
+    return []
+  }
+}
+
+/**
+ * Delete a single conversation from localStorage by id.
+ */
+export function deleteConversation(id: string): void {
+  try {
+    localStorage.removeItem(`${STORAGE_KEYS.CONVERSATIONS}:${id}`)
+  } catch (error) {
+    // eslint-disable-next-line no-console
+    console.error('Failed to delete conversation:', error)
+  }
+}
+
+/**
+ * Get the active conversation id from localStorage.
+ */
+export function getActiveConversationId(): string | null {
+  try {
+    return localStorage.getItem(STORAGE_KEYS.ACTIVE_CONVERSATION)
+  } catch {
+    return null
+  }
+}
+
+/**
+ * Set the active conversation id in localStorage.
+ */
+export function setActiveConversationId(id: string): void {
+  try {
+    localStorage.setItem(STORAGE_KEYS.ACTIVE_CONVERSATION, id)
+  } catch (error) {
+    // eslint-disable-next-line no-console
+    console.error('Failed to save active conversation id:', error)
   }
 }

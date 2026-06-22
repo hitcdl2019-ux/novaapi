@@ -79,7 +79,47 @@ func Playground(c *gin.Context) {
 	c.Request.Body = io.NopCloser(strings.NewReader(string(newBody)))
 	c.Request.ContentLength = int64(len(newBody))
 
-	relayInfo, err := relaycommon.GenRelayInfo(c, types.RelayFormatOpenAI, nil, nil)
+	// Determine relay format: image generation models use OpenAIImage format
+	relayFormat := types.RelayFormatOpenAI
+	if modelName, ok := requestBody["model"].(string); ok && common.IsImageGenerationModel(modelName) {
+		// Convert chat messages to image prompt
+		if messages, ok := requestBody["messages"].([]interface{}); ok && len(messages) > 0 {
+			lastMsg, ok := messages[len(messages)-1].(map[string]interface{})
+			if ok {
+				if content, ok := lastMsg["content"].(string); ok && content != "" {
+					requestBody["prompt"] = content
+				}
+			}
+		}
+		// Keep only image-related fields
+		imageBody := map[string]interface{}{
+			"model":  requestBody["model"],
+			"prompt": requestBody["prompt"],
+		}
+		if _, ok := imageBody["prompt"]; !ok || imageBody["prompt"] == nil {
+			imageBody["prompt"] = "Generate an image"
+		}
+		if n, ok := requestBody["n"]; ok {
+			imageBody["n"] = n
+		}
+		if size, ok := requestBody["size"]; ok {
+			imageBody["size"] = size
+		}
+		if quality, ok := requestBody["quality"]; ok {
+			imageBody["quality"] = quality
+		}
+		if responseFormat, ok := requestBody["response_format"]; ok {
+			imageBody["response_format"] = responseFormat
+		}
+		body, _ := json.Marshal(imageBody)
+		common.SysLog(fmt.Sprintf("[playground] image request body: %s", string(body)))
+		c.Request.Body = io.NopCloser(strings.NewReader(string(body)))
+		c.Request.ContentLength = int64(len(body))
+		common.CleanupBodyStorage(c)
+		relayFormat = types.RelayFormatOpenAIImage
+	}
+
+	relayInfo, err := relaycommon.GenRelayInfo(c, relayFormat, nil, nil)
 	if err != nil {
 		newAPIError = types.NewError(err, types.ErrorCodeInvalidRequest, types.ErrOptionWithSkipRetry())
 		return
@@ -101,5 +141,5 @@ func Playground(c *gin.Context) {
 	}
 	_ = middleware.SetupContextForToken(c, tempToken)
 
-	Relay(c, types.RelayFormatOpenAI)
+	Relay(c, relayFormat)
 }

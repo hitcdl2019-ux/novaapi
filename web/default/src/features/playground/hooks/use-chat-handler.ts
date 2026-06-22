@@ -19,7 +19,7 @@ For commercial licensing, please contact support@quantumnous.com
 import { useCallback } from 'react'
 import { toast } from 'sonner'
 import { sendChatCompletion } from '../api'
-import { MESSAGE_STATUS, ERROR_MESSAGES } from '../constants'
+import { MESSAGE_STATUS, ERROR_MESSAGES, isImageModel } from '../constants'
 import {
   buildChatCompletionPayload,
   updateAssistantMessageWithError,
@@ -27,7 +27,13 @@ import {
   processStreamingContent,
   finalizeMessage,
 } from '../lib'
-import type { Message, PlaygroundConfig, ParameterEnabled } from '../types'
+import type {
+  Message,
+  PlaygroundConfig,
+  ParameterEnabled,
+  ImageGenerationResponse,
+  ChatCompletionResponse,
+} from '../types'
 import { useStreamRequest } from './use-stream-request'
 
 interface UseChatHandlerOptions {
@@ -136,8 +142,48 @@ export function useChatHandler({
 
       try {
         const response = await sendChatCompletion(payload)
-        const choice = response.choices?.[0]
-        if (!choice) return
+
+        // Check if image generation response (has data array, no choices)
+        const maybeImage = response as unknown as Record<string, unknown>
+        if (Array.isArray(maybeImage.data) && !maybeImage.choices) {
+          const images = maybeImage.data as ImageGenerationResponse['data']
+          const imageList: { url: string; alt?: string }[] = []
+          let content = ''
+          for (const img of images) {
+            if (img.url) {
+              const alt = img.revised_prompt || 'Generated image'
+              imageList.push({ url: img.url, alt })
+              content += `![${alt}](${img.url})\n\n`
+            } else if (img.b64_json) {
+              const alt = img.revised_prompt || 'Generated image'
+              const dataUri = `data:image/png;base64,${img.b64_json}`
+              imageList.push({ url: dataUri, alt })
+              content += `![${alt}](${dataUri})\n\n`
+            } else if (img.revised_prompt) {
+              content += `${img.revised_prompt}\n\n`
+            }
+          }
+          if (!content) {
+            // Fallback: show raw response so the user can see what happened
+            content = '```json\n' + JSON.stringify(response, null, 2) + '\n```'
+          }
+          onMessageUpdate((prev) =>
+            updateLastAssistantMessage(prev, (message) => ({
+              ...finalizeMessage({
+                ...message,
+                images: imageList.length > 0 ? imageList : undefined,
+                versions: [{ ...message.versions[0], content }],
+              }),
+              status: MESSAGE_STATUS.COMPLETE,
+            }))
+          )
+          return
+        }
+
+        const choice = (response as Record<string, unknown>).choices as ChatCompletionResponse['choices']
+        const firstChoice = choice?.[0]
+
+        if (!firstChoice) return
 
         onMessageUpdate((prev) =>
           updateLastAssistantMessage(prev, (message) => ({
@@ -147,11 +193,11 @@ export function useChatHandler({
                 versions: [
                   {
                     ...message.versions[0],
-                    content: choice.message?.content || '',
+                    content: firstChoice.message?.content || '',
                   },
                 ],
               },
-              choice.message?.reasoning_content
+              firstChoice.message?.reasoning_content
             ),
             status: MESSAGE_STATUS.COMPLETE,
           }))
@@ -174,16 +220,16 @@ export function useChatHandler({
     [config, parameterEnabled, onMessageUpdate, handleStreamError]
   )
 
-  // Send chat request (stream or non-stream based on config)
+  // Send chat request (stream or non-stream based on config; image models always non-stream)
   const sendChat = useCallback(
     (messages: Message[]) => {
-      if (config.stream) {
+      if (config.stream && !isImageModel(config.model)) {
         sendStreamingChat(messages)
       } else {
         sendNonStreamingChat(messages)
       }
     },
-    [config.stream, sendStreamingChat, sendNonStreamingChat]
+    [config.stream, config.model, sendStreamingChat, sendNonStreamingChat]
   )
 
   // Stop generation

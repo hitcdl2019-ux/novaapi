@@ -309,6 +309,8 @@ func DoApiRequest(a Adaptor, c *gin.Context, info *common.RelayInfo, requestBody
 		return nil, err
 	}
 	applyHeaderOverrideToRequest(req, headerOverride)
+	common2.SysLog(fmt.Sprintf("[api_request] headers: %v", req.Header))
+	common2.SysLog(fmt.Sprintf("[api_request] contentLength: %d", req.ContentLength))
 	resp, err := doRequest(c, req, info)
 	if err != nil {
 		return nil, fmt.Errorf("do request failed: %w", err)
@@ -503,6 +505,9 @@ func doRequest(c *gin.Context, req *http.Request, info *common.RelayInfo) (*http
 	if resp == nil {
 		return nil, errors.New("resp is nil")
 	}
+
+	logger.LogDebug(c, "doRequest response: proto=%s status=%d", resp.Proto, resp.StatusCode)
+	common2.SysLog(fmt.Sprintf("[api_request] response proto=%s status=%d", resp.Proto, resp.StatusCode))
 
 	if upID := resp.Header.Get(common2.RequestIdKey); upID != "" {
 		c.Set(common2.UpstreamRequestIdKey, upID)

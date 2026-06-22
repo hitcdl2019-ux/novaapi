@@ -391,6 +391,7 @@ func getModelRequest(c *gin.Context) (*ModelRequest, bool, error) {
 		// Image generation models routed through playground chat must be
 		// forwarded to the images/generations endpoint for correct relaying.
 		if common.IsImageGenerationModel(modelRequest.Model) {
+				c.Set("playground_origin", true)
 			c.Request.URL.Path = "/v1/images/generations"
 			c.Set("relay_mode", relayconstant.RelayModeImagesGenerations)
 		}

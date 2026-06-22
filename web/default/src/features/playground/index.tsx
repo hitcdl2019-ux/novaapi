@@ -16,9 +16,13 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useLocation, useNavigate } from '@tanstack/react-router'
+import { Plus } from 'lucide-react'
 import { useQuery } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
 import { useIsAdmin } from '@/hooks/use-admin'
+import { Button } from '@/components/ui/button'
 import { getUserModels, getUserGroups } from './api'
 import { PlaygroundChat } from './components/playground-chat'
 import { PlaygroundInput } from './components/playground-input'
@@ -28,16 +32,29 @@ import type { Message as MessageType } from './types'
 
 export function Playground() {
   const isAdmin = useIsAdmin()
+  const { t } = useTranslation()
+  const navigate = useNavigate()
+  const location = useLocation()
+
+  // Read conversation ID from URL search params using raw location
+  const convId = useMemo(() => {
+    const params = new URLSearchParams(location.searchStr || '')
+    return params.get('c') || undefined
+  }, [location.searchStr])
+
   const {
     config,
     parameterEnabled,
     messages,
     models,
     groups,
+    activeConversationId,
     updateMessages,
     setModels,
     setGroups,
     updateConfig,
+    createNewConversation,
+    loadConversationById,
   } = usePlaygroundState()
 
   // For non-admin users, strip group so backend defaults to user's own group
@@ -96,6 +113,27 @@ export function Playground() {
       updateConfig('group', fallback)
     }
   }, [groupsData, setGroups, config.group, updateConfig])
+
+  // Load conversation when URL param changes
+  const prevConvId = useRef(convId)
+  useEffect(() => {
+    if (convId) {
+      // Specific conversation requested — load it
+      if (convId !== prevConvId.current) {
+        loadConversationById(convId)
+      }
+    } else if (prevConvId.current) {
+      // URL param cleared (e.g. after deleting the last remaining conversation)
+      // Create a fresh conversation
+      createNewConversation()
+    }
+    prevConvId.current = convId
+  }, [convId, loadConversationById, createNewConversation])
+
+  const handleNewChat = () => {
+    createNewConversation()
+    navigate({ to: '/playground', search: {} })
+  }
 
   const handleSendMessage = (text: string) => {
     const userMessage = createUserMessage(text)
@@ -173,7 +211,18 @@ export function Playground() {
 
   return (
     <div className='relative flex size-full flex-col overflow-hidden'>
-      {/* Full-width scroll container: scrolling works even over side whitespace */}
+      {/* New chat button in top-right */}
+      <Button
+        size='icon'
+        variant='outline'
+        className='absolute right-4 top-3 z-20'
+        onClick={handleNewChat}
+        title={t('New chat')}
+      >
+        <Plus size={18} />
+      </Button>
+
+      {/* Full-width scroll container */}
       <div className='flex flex-1 flex-col overflow-hidden'>
         <PlaygroundChat
           messages={messages}
@@ -189,7 +238,7 @@ export function Playground() {
         />
       </div>
 
-      {/* Input area: center content and constrain to the same container width */}
+      {/* Input area */}
       <div className='mx-auto w-full max-w-4xl'>
         <PlaygroundInput
           disabled={isGenerating}

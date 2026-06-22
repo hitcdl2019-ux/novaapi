@@ -48,7 +48,14 @@ import {
   SourcesContent,
   SourcesTrigger,
 } from '@/components/ai-elements/sources'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 import { MESSAGE_ROLES } from '../constants'
+import { downloadImage } from '../lib/download-image'
 import { getMessageContentStyles } from '../lib/message-styles'
 import { parseThinkTags } from '../lib/message-utils'
 import type { Message as MessageType } from '../types'
@@ -213,6 +220,51 @@ export function PlaygroundChat({
                                         )}
                                       </SourcesContent>
                                     </Sources>
+                                  )}
+
+                                  {/* Generated images */}
+                                  {message.images && message.images.length > 0 && (
+                                    <div className='space-y-3 my-3'>
+                                      {message.images.map((img, i) => (
+                                        <div key={`${message.key}-img-${i}`} className='relative group/img inline-block'>
+                                          <img
+                                            src={img.url}
+                                            alt={img.alt || 'Generated image'}
+                                            className='max-w-lg h-auto rounded-lg'
+                                            loading='lazy'
+                                          />
+                                          <DropdownMenu>
+                                            <DropdownMenuTrigger
+                                              render={
+                                                <button
+                                                  className='absolute bottom-2 right-2 size-8 flex items-center justify-center rounded-md bg-background/80 opacity-0 group-hover/img:opacity-100 transition-opacity hover:bg-background outline-none'
+                                                  title='Download image'
+                                                />
+                                              }
+                                            >
+                                              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>
+                                            </DropdownMenuTrigger>
+                                            <DropdownMenuContent align='end' side='top' sideOffset={8}>
+                                              <DropdownMenuItem
+                                                onSelect={() => downloadImage({ url: img.url, format: 'png', filename: img.alt || 'image' })}
+                                              >
+                                                PNG
+                                              </DropdownMenuItem>
+                                              <DropdownMenuItem
+                                                onSelect={() => downloadImage({ url: img.url, format: 'jpeg', filename: img.alt || 'image' })}
+                                              >
+                                                JPEG
+                                              </DropdownMenuItem>
+                                              <DropdownMenuItem
+                                                onSelect={() => downloadImage({ url: img.url, format: 'webp', filename: img.alt || 'image' })}
+                                              >
+                                                WebP
+                                              </DropdownMenuItem>
+                                            </DropdownMenuContent>
+                                          </DropdownMenu>
+                                        </div>
+                                      ))}
+                                    </div>
                                   )}
 
                                   {/* Reasoning */}

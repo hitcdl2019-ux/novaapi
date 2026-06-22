@@ -30,6 +30,7 @@ export interface Message {
   key: string
   from: MessageRole
   versions: MessageVersion[]
+  images?: { url: string; alt?: string }[]
   sources?: { href: string; title: string }[]
   reasoning?: {
     content: string
@@ -106,6 +107,16 @@ export interface ChatCompletionResponse {
   }
 }
 
+// Image generation response (from /v1/images/generations)
+export interface ImageGenerationResponse {
+  created: number
+  data: Array<{
+    url?: string
+    b64_json?: string
+    revised_prompt?: string
+  }>
+}
+
 // Configuration types
 export interface PlaygroundConfig {
   model: string
@@ -140,4 +151,13 @@ export interface GroupOption {
   value: string
   ratio: number
   desc?: string
+}
+
+export interface Conversation {
+  id: string
+  title: string
+  messages: Message[]
+  config: PlaygroundConfig
+  createdAt: number
+  updatedAt: number
 }

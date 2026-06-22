@@ -49,10 +49,12 @@ import { checkIsActive } from '../lib/url-utils'
 import {
   type NavCollapsible,
   type NavChatPresets,
+  type NavPlaygroundHistory,
   type NavLink,
   type NavGroup as NavGroupProps,
 } from '../types'
 import { ChatPresetsItem } from './chat-presets-item'
+import { PlaygroundHistoryItem } from './playground-history-item'
 
 /**
  * Sidebar navigation group component
@@ -74,6 +76,11 @@ export function NavGroup({ title, items }: NavGroupProps) {
           // Special handling: dynamic chat presets list
           if (item.type === 'chat-presets') {
             return <ChatPresetsItem key={key} item={item as NavChatPresets} />
+          }
+
+          // Special handling: playground conversation history
+          if (item.type === 'playground-history') {
+            return <PlaygroundHistoryItem key={key} item={item as NavPlaygroundHistory} />
           }
 
           // If no sub-items, render regular link
@@ -120,10 +127,15 @@ function NavBadge({ children }: { children: ReactNode }) {
  */
 function SidebarMenuLink({ item, href }: { item: NavLink; href: string }) {
   const { setOpenMobile } = useSidebar()
+  // Chat link should only highlight when no specific conversation is active
+  const isActive =
+    item.url === '/playground'
+      ? href === '/playground'
+      : checkIsActive(href, item)
   return (
     <SidebarMenuItem>
       <SidebarMenuButton
-        isActive={checkIsActive(href, item)}
+        isActive={isActive}
         tooltip={item.title}
         render={<Link to={item.url} onClick={() => setOpenMobile(false)} />}
       >

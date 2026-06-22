@@ -414,6 +414,13 @@ func GenRelayInfoGemini(c *gin.Context, request dto.Request) *RelayInfo {
 func GenRelayInfoImage(c *gin.Context, request dto.Request) *RelayInfo {
 	info := genBaseRelayInfo(c, request)
 	info.RelayFormat = types.RelayFormatOpenAIImage
+	// Override relay mode for playground: URL path is /pg/chat/completions
+	// which maps to RelayModeChatCompletions, but we need image generation mode.
+	// For normal /v1/images/generations path, this is a no-op.
+	if info.RelayMode == relayconstant.RelayModeChatCompletions {
+		info.RelayMode = relayconstant.RelayModeImagesGenerations
+		info.RequestURLPath = "/v1/images/generations"
+	}
 	return info
 }
 
@@ -496,6 +503,9 @@ func genBaseRelayInfo(c *gin.Context, request dto.Request) *RelayInfo {
 		info.IsPlayground = true
 		info.RequestURLPath = strings.TrimPrefix(info.RequestURLPath, "/pg")
 		info.RequestURLPath = "/v1" + info.RequestURLPath
+	}
+	if c.GetBool("playground_origin") {
+		info.IsPlayground = true
 	}
 
 	userSetting, ok := common.GetContextKeyType[dto.UserSetting](c, constant.ContextKeyUserSetting)
