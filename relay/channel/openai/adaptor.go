@@ -602,6 +602,23 @@ func (a *Adaptor) ConvertOpenAIResponsesRequest(c *gin.Context, info *relaycommo
 	if info != nil && request.Reasoning != nil && request.Reasoning.Effort != "" {
 		info.ReasoningEffort = request.Reasoning.Effort
 	}
+
+	// gpt-5/o 系列推理模型在 Responses API 上不支持采样参数，
+	// 与普通 ChatCompletions 路径(ConvertOpenAIRequest)保持一致地剥离，
+	// 避免上游报 "Unsupported parameter: 'temperature'"。
+	modelName := request.Model
+	if info != nil && info.UpstreamModelName != "" {
+		modelName = info.UpstreamModelName
+	}
+	if strings.HasPrefix(modelName, "o") {
+		request.Temperature = nil
+	}
+	if strings.HasPrefix(modelName, "gpt-5") {
+		request.Temperature = nil
+		request.TopP = nil
+		request.TopLogProbs = nil
+	}
+
 	return request, nil
 }
 

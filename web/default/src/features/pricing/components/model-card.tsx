@@ -30,7 +30,7 @@ import {
 import { parseTags } from '../lib/filters'
 import { isTokenBasedModel } from '../lib/model-helpers'
 import { formatPrice, formatRequestPrice } from '../lib/price'
-import type { PricingModel, TokenUnit } from '../types'
+import type { PricingModel, TokenUnit, PriceType } from '../types'
 import { ModelPerfBadge, type ModelPerfBadgeData } from './model-perf-badge'
 
 export interface ModelCardProps {
@@ -62,7 +62,35 @@ export const ModelCard = memo(function ModelCard(props: ModelCardProps) {
   const isDynamicPricing =
     props.model.billing_mode === 'tiered_expr' &&
     Boolean(props.model.billing_expr)
-  const hasCachedPrice = isTokenBased && props.model.cache_ratio != null
+  // Show every billing dimension that has been configured for the model.
+  // input/output are always present; the rest appear only when their ratio is set.
+  const tokenPriceEntries: {
+    key: string
+    label: string
+    type: PriceType
+    dim?: boolean
+  }[] = isTokenBased
+    ? [
+        { key: 'input', label: t('Input'), type: 'input' },
+        { key: 'output', label: t('Output'), type: 'output' },
+        ...(props.model.cache_ratio != null
+          ? [{ key: 'cache', label: t('Cached'), type: 'cache' as PriceType, dim: true }]
+          : []),
+        ...(props.model.create_cache_ratio != null
+          ? [{ key: 'create_cache', label: t('Cache Write'), type: 'create_cache' as PriceType, dim: true }]
+          : []),
+        ...(props.model.image_ratio != null
+          ? [{ key: 'image', label: t('Image'), type: 'image' as PriceType, dim: true }]
+          : []),
+        ...(props.model.audio_ratio != null
+          ? [{ key: 'audio_input', label: t('Audio In'), type: 'audio_input' as PriceType, dim: true }]
+          : []),
+        ...(props.model.audio_ratio != null &&
+        props.model.audio_completion_ratio != null
+          ? [{ key: 'audio_output', label: t('Audio Out'), type: 'audio_output' as PriceType, dim: true }]
+          : []),
+      ]
+    : []
   const dynamicSummary = isDynamicPricing
     ? getDynamicPricingSummary(props.model, {
         tokenUnit,
@@ -137,49 +165,35 @@ export const ModelCard = memo(function ModelCard(props: ModelCardProps) {
                 )
               ) : isTokenBased ? (
                 <>
-                  <span className='text-muted-foreground whitespace-nowrap'>
-                    {t('Input')}{' '}
-                    <span className='text-foreground font-mono font-semibold'>
-                      {formatPrice(
-                        props.model,
-                        'input',
-                        tokenUnit,
-                        showRechargePrice,
-                        priceRate,
-                        usdExchangeRate
+                  {tokenPriceEntries.map((entry) => (
+                    <span
+                      key={entry.key}
+                      className={cn(
+                        'whitespace-nowrap',
+                        entry.dim
+                          ? 'text-muted-foreground/60'
+                          : 'text-muted-foreground'
                       )}
-                    </span>
-                    /{tokenUnitLabel}
-                  </span>
-                  <span className='text-muted-foreground whitespace-nowrap'>
-                    {t('Output')}{' '}
-                    <span className='text-foreground font-mono font-semibold'>
-                      {formatPrice(
-                        props.model,
-                        'output',
-                        tokenUnit,
-                        showRechargePrice,
-                        priceRate,
-                        usdExchangeRate
-                      )}
-                    </span>
-                    /{tokenUnitLabel}
-                  </span>
-                  {hasCachedPrice && (
-                    <span className='text-muted-foreground/60 whitespace-nowrap'>
-                      {t('Cached')}{' '}
-                      <span className='font-mono'>
+                    >
+                      {entry.label}{' '}
+                      <span
+                        className={cn(
+                          'font-mono',
+                          entry.dim ? '' : 'text-foreground font-semibold'
+                        )}
+                      >
                         {formatPrice(
                           props.model,
-                          'cache',
+                          entry.type,
                           tokenUnit,
                           showRechargePrice,
                           priceRate,
                           usdExchangeRate
                         )}
                       </span>
+                      /{tokenUnitLabel}
                     </span>
-                  )}
+                  ))}
                 </>
               ) : (
                 <span className='text-muted-foreground whitespace-nowrap'>

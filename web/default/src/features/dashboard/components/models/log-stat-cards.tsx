@@ -46,6 +46,8 @@ export function LogStatCards(props: LogStatCardsProps) {
     totalQuota: number
     totalCount: number
     totalTokens: number
+    totalCacheTokens: number
+    totalCacheCreationTokens: number
   } | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(false)
@@ -98,6 +100,8 @@ export function LogStatCards(props: LogStatCardsProps) {
     rpm: stats?.totalCount ?? 0,
     quota: stats?.totalQuota ?? 0,
     tpm: stats?.totalTokens ?? 0,
+    cacheTokens: stats?.totalCacheTokens ?? 0,
+    cacheCreationTokens: stats?.totalCacheCreationTokens ?? 0,
   }
 
   const items = statCardsConfig.map((config) => ({
@@ -122,7 +126,7 @@ export function LogStatCards(props: LogStatCardsProps) {
             >
               <div className='flex items-center gap-2'>
                 <Icon className='text-muted-foreground/60 size-3.5 shrink-0' />
-                <div className='text-muted-foreground truncate text-xs font-medium tracking-wider uppercase'>
+                <div className='text-muted-foreground min-w-0 text-xs leading-tight font-medium tracking-wider break-words uppercase'>
                   {it.title}
                 </div>
               </div>

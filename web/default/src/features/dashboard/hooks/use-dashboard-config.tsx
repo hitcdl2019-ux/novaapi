@@ -25,6 +25,7 @@ import {
   Flame,
   TrendingUp,
   Activity,
+  Database,
   type LucideIcon,
 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
@@ -58,10 +59,18 @@ export function useModelStatCardsConfig(): StatCardConfig[] {
     },
     {
       key: 'tokens',
-      title: t('Total Tokens'),
+      title: t('Total Tokens (Excluding Cache)'),
       description: t('Statistical tokens'),
       icon: Layers,
       getValue: (stat) => stat?.tpm ?? 0,
+    },
+    {
+      key: 'cacheTokens',
+      title: t('Total Cache Tokens'),
+      description: t('Statistical cache tokens'),
+      icon: Database,
+      getValue: (stat) =>
+        (stat?.cacheTokens ?? 0) + (stat?.cacheCreationTokens ?? 0),
     },
     {
       key: 'avgRpm',
