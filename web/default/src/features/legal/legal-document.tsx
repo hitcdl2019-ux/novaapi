@@ -18,9 +18,8 @@ For commercial licensing, please contact support@quantumnous.com
 */
 import { useQuery } from '@tanstack/react-query'
 import { FileWarning } from 'lucide-react'
-import { useTranslation } from 'react-i18next'
-import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { useEffect } from 'react'
+import { Card, CardHeader, CardTitle } from '@/components/ui/card'
 import { Markdown } from '@/components/ui/markdown'
 import { Skeleton } from '@/components/ui/skeleton'
 import { PublicLayout } from '@/components/layout'
@@ -52,11 +51,11 @@ export function LegalDocument({
   fetchDocument,
   emptyMessage,
 }: LegalDocumentProps) {
-  const { t } = useTranslation()
   const { data, isLoading } = useQuery({
     queryKey: [queryKey],
     queryFn: fetchDocument,
-    staleTime: 10 * 60 * 1000,
+    staleTime: 0,
+    refetchOnMount: 'always',
   })
 
   const rawContent = data?.data?.trim() ?? ''
@@ -64,6 +63,14 @@ export function LegalDocument({
   const isUrl = hasContent && isValidUrl(rawContent)
   const isHtml = hasContent && !isUrl && isLikelyHtml(rawContent)
   const success = data?.success ?? false
+
+  // When an external link is configured, redirect to it directly
+  // instead of showing an intermediate "view document" page.
+  useEffect(() => {
+    if (success && isUrl) {
+      window.location.replace(rawContent)
+    }
+  }, [success, isUrl, rawContent])
 
   if (isLoading) {
     return (
@@ -101,32 +108,14 @@ export function LegalDocument({
   }
 
   if (isUrl) {
+    // Redirect is handled by the effect above; show a skeleton meanwhile.
     return (
       <PublicLayout>
-        <div className='mx-auto max-w-2xl py-12'>
-          <Card>
-            <CardHeader>
-              <CardTitle>{title}</CardTitle>
-            </CardHeader>
-            <CardContent className='space-y-4'>
-              <p className='text-muted-foreground text-sm'>
-                {t(
-                  'The administrator configured an external link for this document.'
-                )}
-              </p>
-              <Button
-                render={
-                  <a
-                    href={rawContent}
-                    target='_blank'
-                    rel='noopener noreferrer'
-                  />
-                }
-              >
-                {t('View document')}
-              </Button>
-            </CardContent>
-          </Card>
+        <div className='mx-auto flex max-w-4xl flex-col gap-4 py-12'>
+          <Skeleton className='h-8 w-[45%]' />
+          <Skeleton className='h-4 w-full' />
+          <Skeleton className='h-4 w-[90%]' />
+          <Skeleton className='h-4 w-[80%]' />
         </div>
       </PublicLayout>
     )

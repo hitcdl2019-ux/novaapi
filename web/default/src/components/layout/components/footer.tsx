@@ -17,9 +17,20 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import { Link } from '@tanstack/react-router'
+import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { cn } from '@/lib/utils'
 import { useSystemConfig } from '@/hooks/use-system-config'
+import { getUserAgreement, getPrivacyPolicy } from '@/features/legal/api'
+
+function isValidUrl(value: string) {
+  try {
+    const url = new URL(value)
+    return url.protocol === 'http:' || url.protocol === 'https:'
+  } catch {
+    return false
+  }
+}
 
 const NovaAPISVG = () => (
   <svg
@@ -39,8 +50,56 @@ const NovaAPISVG = () => (
 )
 
 export function Footer() {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
   const { systemName, logo: systemLogo, footerHtml } = useSystemConfig()
+
+  // 文档中心按主站当前语言跳转：中文进中文文档，其余语言进英文文档(/en/)
+  const currentLang = (i18n.resolvedLanguage || i18n.language || '').toLowerCase()
+  const docsUrl = currentLang.startsWith('zh')
+    ? 'https://docs.novaapis.com/'
+    : 'https://docs.novaapis.com/en/'
+
+  // 预取法律文档配置：若管理员配置的是外部链接，footer 直接渲染为外链，
+  // 点击即直达文档，跳过 /user-agreement 这个会闪一下骨架屏的中间跳转页。
+  const { data: uaData } = useQuery({
+    queryKey: ['user-agreement'],
+    queryFn: getUserAgreement,
+    staleTime: 5 * 60 * 1000,
+  })
+  const { data: ppData } = useQuery({
+    queryKey: ['privacy-policy'],
+    queryFn: getPrivacyPolicy,
+    staleTime: 5 * 60 * 1000,
+  })
+  const uaRaw = uaData?.data?.trim() ?? ''
+  const ppRaw = ppData?.data?.trim() ?? ''
+
+  // 非中文界面时，把法律文档链接指向英文版：/docs/xxx -> /docs/en/xxx。
+  // 仅对已是 /docs/ 且未带 /en/ 前缀的路径生效，其余外链原样返回。
+  const localizeLegalUrl = (raw: string) => {
+    if (currentLang.startsWith('zh')) return raw
+    try {
+      const url = new URL(raw)
+      if (
+        url.pathname.startsWith('/docs/') &&
+        !url.pathname.startsWith('/docs/en/')
+      ) {
+        url.pathname = url.pathname.replace('/docs/', '/docs/en/')
+        return url.toString()
+      }
+    } catch {
+      // ignore, fall through
+    }
+    return raw
+  }
+
+  const userAgreementUrl =
+    uaData?.success && isValidUrl(uaRaw) ? localizeLegalUrl(uaRaw) : null
+  const privacyPolicyUrl =
+    ppData?.success && isValidUrl(ppRaw) ? localizeLegalUrl(ppRaw) : null
+
+  const legalLinkClass =
+    'text-sm text-muted-foreground hover:text-primary transition-colors w-fit'
 
   const displayName = systemName || 'NovaAPI'
   const currentYear = new Date().getFullYear()
@@ -92,7 +151,7 @@ export function Footer() {
               {t('模型中心')}
             </Link>
             <a
-              href='https://docs.novaapis.com'
+              href={docsUrl}
               target='_blank'
               rel='noreferrer'
               className='text-sm text-muted-foreground hover:text-primary transition-colors w-fit'
@@ -108,18 +167,44 @@ export function Footer() {
             {t('法律')}
           </h3>
           <nav className='flex flex-col space-y-3'>
-            <Link
-              to='/user-agreement'
-              className='text-sm text-muted-foreground hover:text-primary transition-colors w-fit'
-            >
-              {t('服务条款')}
-            </Link>
-            <Link
-              to='/privacy-policy'
-              className='text-sm text-muted-foreground hover:text-primary transition-colors w-fit'
-            >
-              {t('隐私政策')}
-            </Link>
+            {userAgreementUrl ? (
+              <a
+                href={userAgreementUrl}
+                target='_blank'
+                rel='noopener noreferrer'
+                className={legalLinkClass}
+              >
+                {t('服务条款')}
+              </a>
+            ) : (
+              <Link
+                to='/user-agreement'
+                target='_blank'
+                rel='noopener noreferrer'
+                className={legalLinkClass}
+              >
+                {t('服务条款')}
+              </Link>
+            )}
+            {privacyPolicyUrl ? (
+              <a
+                href={privacyPolicyUrl}
+                target='_blank'
+                rel='noopener noreferrer'
+                className={legalLinkClass}
+              >
+                {t('隐私政策')}
+              </a>
+            ) : (
+              <Link
+                to='/privacy-policy'
+                target='_blank'
+                rel='noopener noreferrer'
+                className={legalLinkClass}
+              >
+                {t('隐私政策')}
+              </Link>
+            )}
           </nav>
         </div>
 
