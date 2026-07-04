@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -294,6 +295,10 @@ func migrateDB() error {
 			return err
 		}
 	}
+	// 为存量用户回填对外业务编号（列与唯一索引已由 AutoMigrate 建好）
+	if err := migrateUserBusinessNumber(); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -502,6 +507,83 @@ func migrateTokenModelLimitsToText() error {
 			return fmt.Errorf("failed to migrate %s.%s to text: %w", tableName, columnName, err)
 		}
 		common.SysLog(fmt.Sprintf("Successfully migrated %s.%s to text", tableName, columnName))
+	}
+	return nil
+}
+
+// migrateUserBusinessNumber backfills the public-facing business number for
+// existing users that don't have one yet. It is idempotent (only touches rows
+// with an empty/NULL business_no) and works across SQLite/MySQL/PostgreSQL by
+// using GORM methods only. The number format is NOVA<YYMMDD>-<6-digit seq>,
+// grouped by each user's registration day and assigned in ascending id order.
+func migrateUserBusinessNumber() error {
+	if !DB.Migrator().HasTable("users") {
+		return nil
+	}
+	if !DB.Migrator().HasColumn(&User{}, "business_no") {
+		return nil
+	}
+
+	// 日期前缀 -> 当日已用最大序号（内存计数器，跨批次保持）
+	seqByDate := make(map[string]int)
+
+	var backfilled int
+	err := DB.Model(&User{}).
+		Where("business_no IS NULL OR business_no = ?", "").
+		Order("id asc").
+		FindInBatches(&[]User{}, 200, func(tx *gorm.DB, batch int) error {
+			users := tx.Statement.Dest.(*[]User)
+			for i := range *users {
+				u := &(*users)[i]
+				date := time.Unix(u.CreatedAt, 0).Local().Format("060102")
+				prefix := "NOVA" + date + "-"
+
+				// 首次遇到该日期时，用 DB 现有最大值做种子（支持中断续跑、幂等）
+				if _, ok := seqByDate[date]; !ok {
+					var last string
+					DB.Model(&User{}).
+						Where("business_no LIKE ?", prefix+"%").
+						Order("business_no DESC").
+						Limit(1).
+						Pluck("business_no", &last)
+					seed := 0
+					if last != "" {
+						if idx := strings.LastIndex(last, "-"); idx >= 0 {
+							if n, e := strconv.Atoi(last[idx+1:]); e == nil {
+								seed = n
+							}
+						}
+					}
+					seqByDate[date] = seed
+				}
+
+				seqByDate[date]++
+				no := fmt.Sprintf("%s%06d", prefix, seqByDate[date])
+				if e := DB.Model(&User{}).Where("id = ?", u.Id).Update("business_no", no).Error; e != nil {
+					return fmt.Errorf("failed to backfill business_no for user %d: %w", u.Id, e)
+				}
+				backfilled++
+			}
+			return nil
+		}).Error
+	if err != nil {
+		return fmt.Errorf("failed to backfill user business numbers: %w", err)
+	}
+	if backfilled > 0 {
+		common.SysLog(fmt.Sprintf("Backfilled business_no for %d existing users", backfilled))
+	}
+
+	// Create the unique index manually (the struct tag intentionally omits
+	// uniqueIndex): SQLite cannot ADD a UNIQUE column via ALTER, and letting
+	// GORM manage the index on SQLite fails when it re-parses the table DDL.
+	// All rows now hold unique, non-null values, so a plain CREATE UNIQUE INDEX
+	// is safe across SQLite/MySQL/PostgreSQL. Guarded by HasIndex for idempotency
+	// (MySQL lacks CREATE INDEX IF NOT EXISTS).
+	const businessNoIndex = "idx_users_business_no"
+	if !DB.Migrator().HasIndex(&User{}, businessNoIndex) {
+		if err := DB.Exec("CREATE UNIQUE INDEX " + businessNoIndex + " ON users (business_no)").Error; err != nil {
+			return fmt.Errorf("failed to create unique index on business_no: %w", err)
+		}
 	}
 	return nil
 }

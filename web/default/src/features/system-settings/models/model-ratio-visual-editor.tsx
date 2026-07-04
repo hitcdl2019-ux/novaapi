@@ -66,6 +66,7 @@ import {
   type ModelRatioData,
 } from './model-pricing-sheet'
 import { formatPricingNumber } from './pricing-format'
+import { getPricingInputCurrency } from '@/lib/currency'
 
 type ModelRatioVisualEditorProps = {
   modelPrice: string
@@ -142,15 +143,28 @@ const getExpressionSummary = (row: ModelRow, t: (key: string) => string) => {
   return t('Expression pricing')
 }
 
-const getPriceSummary = (row: ModelRow, t: (key: string) => string) => {
+const getPriceSummary = (
+  row: ModelRow,
+  t: (key: string) => string,
+  rate: number,
+  symbol: string
+) => {
   if (row.billingMode === 'tiered_expr') {
     return getExpressionSummary(row, t)
   }
   if (row.billingMode === 'per-request') {
-    return row.price ? `$${row.price} / ${t('request')}` : t('Unset price')
+    const priceNumber = toNumberOrNull(row.price)
+    return priceNumber !== null
+      ? `${symbol}${formatPricingNumber(priceNumber * rate)} / ${t('request')}`
+      : t('Unset price')
   }
 
-  const inputPrice = ratioToPrice(row.ratio)
+  // Model prices are stored in USD; scale the base input price to the
+  // display currency. Lane extras derive from it via dimensionless ratios.
+  const baseUsd = ratioToPrice(row.ratio)
+  const inputPrice = baseUsd
+    ? formatPricingNumber(Number(baseUsd) * rate)
+    : ''
   if (!inputPrice) return t('Unset price')
 
   const extraCount = [
@@ -163,11 +177,16 @@ const getPriceSummary = (row: ModelRow, t: (key: string) => string) => {
   ].filter(hasValue).length
 
   return extraCount > 0
-    ? `${t('Input')} $${inputPrice} · ${extraCount} ${t('extras')}`
-    : `${t('Input')} $${inputPrice}`
+    ? `${t('Input')} ${symbol}${inputPrice} · ${extraCount} ${t('extras')}`
+    : `${t('Input')} ${symbol}${inputPrice}`
 }
 
-const getPriceDetail = (row: ModelRow, t: (key: string) => string) => {
+const getPriceDetail = (
+  row: ModelRow,
+  t: (key: string) => string,
+  rate: number,
+  symbol: string
+) => {
   if (row.billingMode === 'tiered_expr') {
     return row.requestRuleExpr
       ? t('Includes request rules')
@@ -177,16 +196,19 @@ const getPriceDetail = (row: ModelRow, t: (key: string) => string) => {
     return t('Fixed request price')
   }
 
-  const inputPrice = ratioToPrice(row.ratio)
+  const baseUsd = ratioToPrice(row.ratio)
+  const inputPrice = baseUsd
+    ? formatPricingNumber(Number(baseUsd) * rate)
+    : ''
   if (!inputPrice) return t('No base input price')
 
   const details = [
     row.completionRatio &&
-      `${t('Output')} $${ratioToPrice(row.completionRatio, inputPrice)}`,
+      `${t('Output')} ${symbol}${ratioToPrice(row.completionRatio, inputPrice)}`,
     row.cacheRatio &&
-      `${t('Cache')} $${ratioToPrice(row.cacheRatio, inputPrice)}`,
+      `${t('Cache')} ${symbol}${ratioToPrice(row.cacheRatio, inputPrice)}`,
     row.createCacheRatio &&
-      `${t('Cache write')} $${ratioToPrice(row.createCacheRatio, inputPrice)}`,
+      `${t('Cache write')} ${symbol}${ratioToPrice(row.createCacheRatio, inputPrice)}`,
   ].filter(Boolean)
 
   return details.length > 0 ? details.join(' · ') : t('Base input price only')
@@ -207,6 +229,8 @@ export const ModelRatioVisualEditor = memo(
     onChange,
   }: ModelRatioVisualEditorProps) {
     const { t } = useTranslation()
+    const { symbol: currencySymbol, rate: currencyRate } =
+      getPricingInputCurrency()
     const isMobile = useMediaQuery('(max-width: 767px)')
     const [sheetOpen, setSheetOpen] = useState(false)
     const [editorOpen, setEditorOpen] = useState(false)
@@ -633,16 +657,21 @@ export const ModelRatioVisualEditor = memo(
           cell: ({ row }) => (
             <div className='flex min-w-[180px] flex-col gap-1'>
               <span className='font-medium'>
-                {getPriceSummary(row.original, t)}
+                {getPriceSummary(row.original, t, currencyRate, currencySymbol)}
               </span>
               <span className='text-muted-foreground max-w-[320px] truncate text-xs'>
-                {getPriceDetail(row.original, t)}
+                {getPriceDetail(row.original, t, currencyRate, currencySymbol)}
               </span>
             </div>
           ),
           sortingFn: (rowA, rowB) =>
-            getPriceSummary(rowA.original, t).localeCompare(
-              getPriceSummary(rowB.original, t)
+            getPriceSummary(
+              rowA.original,
+              t,
+              currencyRate,
+              currencySymbol
+            ).localeCompare(
+              getPriceSummary(rowB.original, t, currencyRate, currencySymbol)
             ),
           meta: { label: t('Price summary') },
         },
@@ -669,7 +698,7 @@ export const ModelRatioVisualEditor = memo(
           enableHiding: false,
         },
       ]
-    }, [handleEdit, handleDelete, t])
+    }, [handleEdit, handleDelete, t, currencyRate, currencySymbol])
 
     const table = useReactTable({
       data: models,

@@ -52,9 +52,10 @@ var (
 	lastGetPricingTime   time.Time
 	updatePricingLock    sync.Mutex
 
-	// 缓存映射：模型名 -> 启用分组 / 计费类型
+	// 缓存映射：模型名 -> 启用分组 / 计费类型 / 供应商
 	modelEnableGroups     = make(map[string][]string)
 	modelQuotaTypeMap     = make(map[string]int)
+	modelVendorMap        = make(map[string]int)
 	modelEnableGroupsLock = sync.RWMutex{}
 )
 
@@ -349,9 +350,11 @@ func updatePricing() {
 	modelEnableGroupsLock.Lock()
 	modelEnableGroups = make(map[string][]string)
 	modelQuotaTypeMap = make(map[string]int)
+	modelVendorMap = make(map[string]int)
 	for _, p := range pricingMap {
 		modelEnableGroups[p.ModelName] = p.EnableGroup
 		modelQuotaTypeMap[p.ModelName] = p.QuotaType
+		modelVendorMap[p.ModelName] = p.VendorID
 	}
 	modelEnableGroupsLock.Unlock()
 

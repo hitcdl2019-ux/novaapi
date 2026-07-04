@@ -18,6 +18,7 @@ import (
 	"github.com/QuantumNous/new-api/service"
 	"github.com/QuantumNous/new-api/setting"
 	"github.com/QuantumNous/new-api/setting/operation_setting"
+	"github.com/QuantumNous/new-api/setting/ratio_setting"
 
 	"github.com/QuantumNous/new-api/constant"
 
@@ -290,6 +291,55 @@ func GetUser(c *gin.Context) {
 		"data":    user,
 	})
 	return
+}
+
+// GetUserVendorRatio 返回指定用户的 (厂商 → 倍率) 配置及可选厂商列表
+func GetUserVendorRatio(c *gin.Context) {
+	id, err := strconv.Atoi(c.Param("id"))
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	ratios := ratio_setting.GetUserVendorRatioForUser(id)
+	vendors := model.GetVendors()
+	common.ApiSuccess(c, gin.H{
+		"ratios":  ratios,
+		"vendors": vendors,
+	})
+}
+
+type updateUserVendorRatioRequest struct {
+	Ratios map[string]float64 `json:"ratios"`
+}
+
+// UpdateUserVendorRatio 更新指定用户的 (厂商 → 倍率) 配置
+func UpdateUserVendorRatio(c *gin.Context) {
+	id, err := strconv.Atoi(c.Param("id"))
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	var req updateUserVendorRatioRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	for _, ratio := range req.Ratios {
+		if ratio < 0 {
+			common.ApiErrorMsg(c, "倍率不能小于 0")
+			return
+		}
+	}
+	merged, err := ratio_setting.MergeUserVendorRatioJSON(id, req.Ratios)
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	if err := model.UpdateOption("UserVendorRatio", merged); err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	common.ApiSuccess(c, nil)
 }
 
 func GenerateAccessToken(c *gin.Context) {

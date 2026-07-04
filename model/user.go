@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/dto"
@@ -41,6 +42,7 @@ type User struct {
 	UsedQuota        int            `json:"used_quota" gorm:"type:int;default:0;column:used_quota"` // used quota
 	RequestCount     int            `json:"request_count" gorm:"type:int;default:0;"`               // request number
 	Group            string         `json:"group" gorm:"type:varchar(64);default:'default'"`
+	BusinessNo       string         `json:"business_no" gorm:"type:varchar(32);column:business_no"`
 	AffCode          string         `json:"aff_code" gorm:"type:varchar(32);column:aff_code;uniqueIndex"`
 	AffCount         int            `json:"aff_count" gorm:"type:int;default:0;column:aff_count"`
 	AffQuota         int            `json:"aff_quota" gorm:"type:int;default:0;column:aff_quota"`           // 邀请剩余额度
@@ -398,8 +400,17 @@ func (user *User) Insert(inviterId int) error {
 		user.SetSetting(defaultSetting)
 	}
 
-	result := DB.Create(user)
-	if result.Error != nil {
+	// 生成对外业务编号并写入；并发撞号时重算重试
+	var result *gorm.DB
+	for attempt := 0; ; attempt++ {
+		user.BusinessNo = GenerateUserBusinessNo(time.Now())
+		result = DB.Create(user)
+		if result.Error == nil {
+			break
+		}
+		if attempt < 8 && IsBusinessNumberTaken(user.BusinessNo) {
+			continue // 撞号，重算序号再试
+		}
 		return result.Error
 	}
 
@@ -454,6 +465,10 @@ func (user *User) InsertWithTx(tx *gorm.DB, inviterId int) error {
 		defaultSetting := dto.UserSetting{}
 		user.SetSetting(defaultSetting)
 	}
+
+	// 生成对外业务编号；事务内不能重试（PG 语句报错会中止整个事务），
+	// 故仅做预检后单次写入，极罕见撞号时整个 OAuth 事务失败、用户重登即可。
+	user.BusinessNo = GenerateUserBusinessNo(time.Now())
 
 	result := tx.Create(user)
 	if result.Error != nil {
@@ -686,6 +701,39 @@ func (user *User) FillUserByTelegramId() error {
 
 func IsEmailAlreadyTaken(email string) bool {
 	return DB.Unscoped().Where("email = ?", email).Find(&User{}).RowsAffected == 1
+}
+
+// IsBusinessNumberTaken reports whether a business number is already assigned.
+func IsBusinessNumberTaken(businessNo string) bool {
+	if businessNo == "" {
+		return false
+	}
+	return DB.Unscoped().Where("business_no = ?", businessNo).Find(&User{}).RowsAffected == 1
+}
+
+// GenerateUserBusinessNo builds a business number in the form
+// NOVA<YYMMDD>-<6-digit daily sequence>, e.g. NOVA260703-000042.
+// The date is taken from the given time in server local time. The sequence is
+// derived from the current maximum for that day's prefix + 1. Because the suffix
+// is zero-padded to 6 digits, lexicographic order matches numeric order.
+func GenerateUserBusinessNo(t time.Time) string {
+	prefix := "NOVA" + t.Local().Format("060102") + "-"
+	var last string
+	DB.Model(&User{}).
+		Where("business_no LIKE ?", prefix+"%").
+		Order("business_no DESC").
+		Limit(1).
+		Pluck("business_no", &last)
+
+	seq := 1
+	if last != "" {
+		if idx := strings.LastIndex(last, "-"); idx >= 0 {
+			if n, err := strconv.Atoi(last[idx+1:]); err == nil {
+				seq = n + 1
+			}
+		}
+	}
+	return fmt.Sprintf("%s%06d", prefix, seq)
 }
 
 func IsWeChatIdAlreadyTaken(wechatId string) bool {

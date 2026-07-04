@@ -311,6 +311,31 @@ export function getCurrencyDisplay() {
 }
 
 /**
+ * Currency metadata for the admin model-pricing INPUT path.
+ *
+ * Model prices are stored internally as USD. This returns the symbol, the
+ * USD→display exchange rate, and a short label so pricing fields can be shown
+ * and entered in the admin-configured display currency:
+ *   displayValue = usdValue * rate;  usdValue = displayValue / rate
+ *
+ * TOKENS display falls back to USD ($, rate 1) because token-denominated price
+ * entry is meaningless — pricing is always a currency amount.
+ */
+export function getPricingInputCurrency(): {
+  symbol: string
+  rate: number
+  label: string
+} {
+  const meta = getBillingDisplayMeta(getConfig())
+  if (meta.kind === 'tokens') {
+    return { symbol: '$', rate: 1, label: 'USD' }
+  }
+  const rate = meta.exchangeRate > 0 ? meta.exchangeRate : 1
+  const label = meta.kind === 'currency' ? meta.currencyCode : meta.symbol
+  return { symbol: meta.symbol, rate, label }
+}
+
+/**
  * Format a USD amount according to the admin-configured display settings.
  *
  * This is the PRIMARY function for displaying quota/balance/credit amounts

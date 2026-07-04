@@ -61,6 +61,15 @@ func HandleGroupRatio(ctx *gin.Context, relayInfo *relaycommon.RelayInfo) types.
 		groupRatioInfo.GroupRatio = ratio_setting.GetGroupRatio(relayInfo.UsingGroup)
 	}
 
+	// (用户 × 厂商) 覆盖：命中即替换最终分组倍率，优先级高于用户组×令牌组
+	if vendorId, ok := model.GetVendorIdByModel(relayInfo.OriginModelName); ok {
+		if uvRatio, ok := ratio_setting.GetUserVendorRatio(relayInfo.UserId, vendorId); ok {
+			groupRatioInfo.GroupRatio = uvRatio
+			groupRatioInfo.GroupSpecialRatio = uvRatio
+			groupRatioInfo.HasSpecialRatio = true
+		}
+	}
+
 	return groupRatioInfo
 }
 

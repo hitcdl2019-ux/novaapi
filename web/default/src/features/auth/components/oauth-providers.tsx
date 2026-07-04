@@ -17,6 +17,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import type { ReactNode } from 'react'
+import { Globe } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import {
   IconDiscord,
@@ -26,6 +27,12 @@ import {
 } from '@/assets/brand-icons'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip'
 import { useOAuthLogin } from '../hooks/use-oauth-login'
 import type { SystemStatus } from '../types'
 
@@ -35,6 +42,11 @@ type OAuthProvidersProps = {
   className?: string
   onWeChatLogin?: () => void
   isWeChatLoading?: boolean
+  /**
+   * Runs before any provider action. Return false to abort (e.g. legal
+   * consent not yet agreed). Lets callers show a prompt instead of disabling.
+   */
+  onBeforeAction?: () => boolean
 }
 
 type ProviderButton = {
@@ -51,6 +63,7 @@ export function OAuthProviders({
   className,
   onWeChatLogin,
   isWeChatLoading = false,
+  onBeforeAction,
 }: OAuthProvidersProps) {
   const { t } = useTranslation()
   const {
@@ -64,6 +77,13 @@ export function OAuthProviders({
     handleTelegramLogin,
     handleCustomOAuthLogin,
   } = useOAuthLogin(status)
+
+  // Wrap every provider action with the optional consent guard so callers can
+  // show a prompt (toast + highlight) instead of disabling the buttons.
+  const guard = (action: () => void) => () => {
+    if (onBeforeAction && !onBeforeAction()) return
+    action()
+  }
 
   const providerButtons: ProviderButton[] = []
 
@@ -155,6 +175,9 @@ export function OAuthProviders({
 
   if (providerButtons.length === 0) return null
 
+  // Few providers → full-width labelled buttons; many → compact icon grid
+  const useGrid = providerButtons.length >= 3
+
   return (
     <div className={cn('space-y-3', className)}>
       <div className='relative'>
@@ -162,29 +185,57 @@ export function OAuthProviders({
           <span className='w-full border-t' />
         </div>
         <div className='relative flex justify-center text-xs uppercase'>
-          <span className='bg-background text-muted-foreground px-2'>
+          <span className='bg-card text-muted-foreground px-2'>
             {t('Or continue with')}
           </span>
         </div>
       </div>
 
-      <div className='flex flex-col gap-2'>
-        {providerButtons.map(
-          ({ key, label, onClick, icon, disabled: extraDisabled }) => (
-            <Button
-              key={key}
-              variant='outline'
-              type='button'
-              disabled={disabled || isLoading || extraDisabled}
-              onClick={onClick}
-              className='h-11 w-full justify-center gap-2 rounded-lg'
-            >
-              {icon}
-              {label}
-            </Button>
-          )
-        )}
-      </div>
+      {useGrid ? (
+        <TooltipProvider delay={200}>
+          <div className='grid grid-cols-4 gap-2'>
+            {providerButtons.map(
+              ({ key, label, onClick, icon, disabled: extraDisabled }) => (
+                <Tooltip key={key}>
+                  <TooltipTrigger
+                    render={
+                      <Button
+                        variant='outline'
+                        type='button'
+                        disabled={disabled || isLoading || extraDisabled}
+                        onClick={guard(onClick)}
+                        aria-label={label}
+                        className='h-11 w-full justify-center rounded-lg'
+                      />
+                    }
+                  >
+                    {icon ?? <Globe className='h-4 w-4' />}
+                  </TooltipTrigger>
+                  <TooltipContent>{label}</TooltipContent>
+                </Tooltip>
+              )
+            )}
+          </div>
+        </TooltipProvider>
+      ) : (
+        <div className='flex flex-col gap-2'>
+          {providerButtons.map(
+            ({ key, label, onClick, icon, disabled: extraDisabled }) => (
+              <Button
+                key={key}
+                variant='outline'
+                type='button'
+                disabled={disabled || isLoading || extraDisabled}
+                onClick={guard(onClick)}
+                className='h-11 w-full justify-center gap-2 rounded-lg'
+              >
+                {icon}
+                {label}
+              </Button>
+            )
+          )}
+        </div>
+      )}
     </div>
   )
 }

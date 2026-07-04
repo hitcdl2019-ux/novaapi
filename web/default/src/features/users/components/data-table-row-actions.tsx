@@ -30,6 +30,7 @@ import {
   ShieldAlert,
   Link2,
   CreditCard,
+  Percent,
 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
@@ -54,6 +55,7 @@ import {
 import { getUserActionMessage } from '../lib'
 import { type User, type ManageUserAction } from '../types'
 import { UserBindingDialog } from './dialogs/user-binding-dialog'
+import { UserVendorRatioDialog } from './dialogs/user-vendor-ratio-dialog'
 import { useUsers } from './users-provider'
 
 interface DataTableRowActionsProps {
@@ -68,6 +70,7 @@ export function DataTableRowActions({ row }: DataTableRowActionsProps) {
   const [resetTwoFAOpen, setResetTwoFAOpen] = useState(false)
   const [bindingDialogOpen, setBindingDialogOpen] = useState(false)
   const [subscriptionsDialogOpen, setSubscriptionsDialogOpen] = useState(false)
+  const [discountDialogOpen, setDiscountDialogOpen] = useState(false)
 
   const handleEdit = () => {
     setCurrentRow(user)
@@ -220,6 +223,18 @@ export function DataTableRowActions({ row }: DataTableRowActionsProps) {
             </DropdownMenuShortcut>
           </DropdownMenuItem>
 
+          <DropdownMenuItem
+            onSelect={(event) => {
+              event.preventDefault()
+              setDiscountDialogOpen(true)
+            }}
+          >
+            {t('Discount Ratio')}
+            <DropdownMenuShortcut>
+              <Percent size={16} />
+            </DropdownMenuShortcut>
+          </DropdownMenuItem>
+
           <DropdownMenuSeparator />
 
           <DropdownMenuItem
@@ -293,6 +308,13 @@ export function DataTableRowActions({ row }: DataTableRowActionsProps) {
         onOpenChange={setSubscriptionsDialogOpen}
         user={{ id: user.id, username: user.username }}
         onSuccess={triggerRefresh}
+      />
+
+      <UserVendorRatioDialog
+        open={discountDialogOpen}
+        onOpenChange={setDiscountDialogOpen}
+        userId={user.id}
+        username={user.username}
       />
     </>
   )

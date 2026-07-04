@@ -109,8 +109,11 @@ export function transformFormDataToPayload(
     model_limits_enabled: data.model_limits.length > 0,
     model_limits: data.model_limits.join(','),
     allow_ips: data.allow_ips || '',
-    group: data.group || '',
-    cross_group_retry: data.group === 'auto' ? !!data.cross_group_retry : false,
+    // Token group is intentionally always empty so the request follows the
+    // user's own group (see middleware/auth.go). The group selector is hidden
+    // in the UI; routing/rate-limit/permission all fall back to the user group.
+    group: '',
+    cross_group_retry: false,
   }
 }
 

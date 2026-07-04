@@ -37,6 +37,7 @@ import {
 import {
   Form,
   FormControl,
+  FormDescription,
   FormField,
   FormItem,
   FormLabel,
@@ -63,6 +64,7 @@ export function SignUpForm({
   const [isLoading, setIsLoading] = useState(false)
   const [verificationCode, setVerificationCode] = useState('')
   const [agreedToLegal, setAgreedToLegal] = useState(false)
+  const [consentError, setConsentError] = useState(false)
   const [wechatCode, setWeChatCode] = useState('')
   const [isWeChatDialogOpen, setIsWeChatDialogOpen] = useState(false)
   const [isWeChatSubmitting, setIsWeChatSubmitting] = useState(false)
@@ -89,6 +91,7 @@ export function SignUpForm({
 
   const form = useForm<z.infer<typeof registerFormSchema>>({
     resolver: zodResolver(registerFormSchema),
+    mode: 'onChange',
     defaultValues: {
       username: '',
       email: '',
@@ -107,6 +110,17 @@ export function SignUpForm({
     status?.data?.oauth_register_enabled ??
     true
   const hasWeChatLogin = Boolean(status?.wechat_login)
+
+  // Returns false (and shows a prompt + highlights the checkbox) when legal
+  // consent is required but not yet agreed. Used by every sign-up action.
+  const guardLegalConsent = () => {
+    if (requiresLegalConsent && !agreedToLegal) {
+      setConsentError(true)
+      toast.error(legalConsentErrorMessage)
+      return false
+    }
+    return true
+  }
 
   const wechatQrCodeUrl = useMemo(() => {
     return (
@@ -131,10 +145,7 @@ export function SignUpForm({
   }, [requiresLegalConsent])
 
   async function onSubmit(data: z.infer<typeof registerFormSchema>) {
-    if (requiresLegalConsent && !agreedToLegal) {
-      toast.error(legalConsentErrorMessage)
-      return
-    }
+    if (!guardLegalConsent()) return
 
     // Validate email verification if required
     if (emailVerificationRequired) {
@@ -177,10 +188,7 @@ export function SignUpForm({
   }
 
   const handleOpenWeChatDialog = () => {
-    if (requiresLegalConsent && !agreedToLegal) {
-      toast.error(legalConsentErrorMessage)
-      return
-    }
+    if (!guardLegalConsent()) return
 
     setIsWeChatDialogOpen(true)
   }
@@ -231,7 +239,12 @@ export function SignUpForm({
             <FormItem>
               <FormLabel>{t('Username')}</FormLabel>
               <FormControl>
-                <Input placeholder={t('Enter your username')} {...field} />
+                <Input
+                  placeholder={t('Enter your username')}
+                  autoComplete='username'
+                  autoFocus
+                  {...field}
+                />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -248,9 +261,13 @@ export function SignUpForm({
               <FormControl>
                 <PasswordInput
                   placeholder={t('Enter password (8-20 characters)')}
+                  autoComplete='new-password'
                   {...field}
                 />
               </FormControl>
+              <FormDescription>
+                {t('Use 8-20 characters.')}
+              </FormDescription>
               <FormMessage />
             </FormItem>
           )}
@@ -264,7 +281,11 @@ export function SignUpForm({
             <FormItem>
               <FormLabel>{t('Confirm password')}</FormLabel>
               <FormControl>
-                <PasswordInput placeholder={t('Confirm password')} {...field} />
+                <PasswordInput
+                  placeholder={t('Confirm password')}
+                  autoComplete='new-password'
+                  {...field}
+                />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -287,6 +308,7 @@ export function SignUpForm({
                     <Input
                       placeholder={t('name@example.com')}
                       type='email'
+                      autoComplete='email'
                       {...field}
                     />
                   </FormControl>
@@ -300,6 +322,8 @@ export function SignUpForm({
               <div className='flex-1'>
                 <Input
                   placeholder={t('Verification code')}
+                  aria-label={t('Verification code')}
+                  autoComplete='one-time-code'
                   value={verificationCode}
                   onChange={(e) => setVerificationCode(e.target.value)}
                 />
@@ -307,6 +331,7 @@ export function SignUpForm({
               <Button
                 variant='outline'
                 type='button'
+                className='min-w-28 shrink-0'
                 disabled={isLoading || isSendingCode || isActive || !emailValue}
                 onClick={handleSendVerificationCode}
               >
@@ -336,7 +361,11 @@ export function SignUpForm({
         <LegalConsent
           status={status}
           checked={agreedToLegal}
-          onCheckedChange={setAgreedToLegal}
+          onCheckedChange={(value) => {
+            setAgreedToLegal(value)
+            if (value) setConsentError(false)
+          }}
+          invalid={consentError && !agreedToLegal}
           className='mt-1'
         />
 
@@ -344,7 +373,7 @@ export function SignUpForm({
         <Button
           type='submit'
           className='mt-2 w-full justify-center gap-2'
-          disabled={isLoading || (requiresLegalConsent && !agreedToLegal)}
+          disabled={isLoading}
         >
           {isLoading ? <Loader2 className='h-4 w-4 animate-spin' /> : null}
           {t('Create account')}
@@ -353,7 +382,8 @@ export function SignUpForm({
         {oauthRegisterEnabled && (
           <OAuthProviders
             status={status}
-            disabled={isLoading || (requiresLegalConsent && !agreedToLegal)}
+            disabled={isLoading}
+            onBeforeAction={guardLegalConsent}
             onWeChatLogin={hasWeChatLogin ? handleOpenWeChatDialog : undefined}
             isWeChatLoading={isWeChatSubmitting}
             className='pt-2'

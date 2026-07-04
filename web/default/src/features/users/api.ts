@@ -181,3 +181,39 @@ export async function adminUnbindCustomOAuth(
   )
   return res.data
 }
+
+// ============================================================================
+// User Vendor Ratio APIs (per-user × vendor discount ratio)
+// ============================================================================
+
+export interface VendorOption {
+  id: number
+  name: string
+  icon?: string
+}
+
+export interface UserVendorRatioData {
+  ratios: Record<string, number>
+  vendors: VendorOption[]
+}
+
+/**
+ * Get a user's per-vendor discount ratios and the vendor list (admin)
+ */
+export async function getUserVendorRatio(
+  userId: number
+): Promise<ApiResponse<UserVendorRatioData>> {
+  const res = await api.get(`/api/user/${userId}/vendor_ratio`)
+  return res.data
+}
+
+/**
+ * Update a user's per-vendor discount ratios (admin)
+ */
+export async function updateUserVendorRatio(
+  userId: number,
+  ratios: Record<string, number>
+): Promise<ApiResponse> {
+  const res = await api.put(`/api/user/${userId}/vendor_ratio`, { ratios })
+  return res.data
+}

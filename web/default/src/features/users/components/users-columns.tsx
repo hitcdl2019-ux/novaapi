@@ -78,6 +78,22 @@ export function useUsersColumns(): ColumnDef<User>[] {
       meta: { label: t('ID'), mobileHidden: true },
     },
     {
+      accessorKey: 'business_no',
+      header: ({ column }) => (
+        <DataTableColumnHeader column={column} title={t('Business No')} />
+      ),
+      cell: ({ row }) => {
+        const businessNo = row.getValue('business_no') as string | undefined
+        return (
+          <span className='font-mono text-sm tabular-nums'>
+            {businessNo || '-'}
+          </span>
+        )
+      },
+      enableSorting: false,
+      meta: { label: t('Business No'), mobileHidden: true },
+    },
+    {
       accessorKey: 'username',
       header: ({ column }) => (
         <DataTableColumnHeader column={column} title={t('Username')} />

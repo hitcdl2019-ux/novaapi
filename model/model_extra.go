@@ -29,3 +29,20 @@ func GetModelQuotaTypes(modelName string) []int {
 	}
 	return []int{quota}
 }
+
+// GetVendorIdByModel 返回指定模型所属厂商 ID（来自缓存）。
+// vendorId <= 0 视为未归属厂商，返回 (0, false)。
+func GetVendorIdByModel(modelName string) (int, bool) {
+	if modelName == "" {
+		return 0, false
+	}
+	GetPricing()
+
+	modelEnableGroupsLock.RLock()
+	vendorId, ok := modelVendorMap[modelName]
+	modelEnableGroupsLock.RUnlock()
+	if !ok || vendorId <= 0 {
+		return 0, false
+	}
+	return vendorId, true
+}

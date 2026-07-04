@@ -72,10 +72,7 @@ import {
   transformApiKeyToFormDefaults,
 } from '../lib'
 import { type ApiKey } from '../types'
-import {
-  ApiKeyGroupCombobox,
-  type ApiKeyGroupOption,
-} from './api-key-group-combobox'
+import { type ApiKeyGroupOption } from './api-key-group-combobox'
 import { useApiKeys } from './api-keys-provider'
 
 type ApiKeyMutateDrawerProps = {
@@ -265,7 +262,6 @@ export function ApiKeysMutateDrawer({
   const quotaPlaceholder = tokensOnly
     ? t('Enter quota in tokens')
     : t('Enter quota in {{currency}}', { currency: currencyLabel })
-  const selectedGroup = form.watch('group')
   const unlimitedQuota = form.watch('unlimited_quota')
 
   return (
@@ -317,52 +313,6 @@ export function ApiKeysMutateDrawer({
                   </FormItem>
                 )}
               />
-
-              <FormField
-                control={form.control}
-                name='group'
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>{t('Group')}</FormLabel>
-                    <FormControl>
-                      <ApiKeyGroupCombobox
-                        options={groups}
-                        value={field.value}
-                        onValueChange={field.onChange}
-                        placeholder={t('Select a group')}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              {selectedGroup === 'auto' && (
-                <FormField
-                  control={form.control}
-                  name='cross_group_retry'
-                  render={({ field }) => (
-                    <FormItem className='flex min-h-16 flex-row items-center justify-between gap-3 rounded-lg border px-3 py-2.5 sm:min-h-20 sm:gap-4 sm:px-4 sm:py-3'>
-                      <div className='space-y-0.5'>
-                        <FormLabel className='text-sm'>
-                          {t('Cross-group retry')}
-                        </FormLabel>
-                        <FormDescription className='line-clamp-2 text-xs sm:line-clamp-none'>
-                          {t(
-                            'When enabled, if channels in the current group fail, it will try channels in the next group in order.'
-                          )}
-                        </FormDescription>
-                      </div>
-                      <FormControl>
-                        <Switch
-                          checked={!!field.value}
-                          onCheckedChange={field.onChange}
-                        />
-                      </FormControl>
-                    </FormItem>
-                  )}
-                />
-              )}
 
               <FormField
                 control={form.control}

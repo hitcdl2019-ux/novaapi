@@ -70,6 +70,7 @@ export function UserAuthForm({
   const [isLoading, setIsLoading] = useState(false)
   const [wechatCode, setWeChatCode] = useState('')
   const [agreedToLegal, setAgreedToLegal] = useState(false)
+  const [consentError, setConsentError] = useState(false)
   const [passkeySupported, setPasskeySupported] = useState(false)
   const [isPasskeyLoading, setIsPasskeyLoading] = useState(false)
   const [isWeChatDialogOpen, setIsWeChatDialogOpen] = useState(false)
@@ -93,11 +94,19 @@ export function UserAuthForm({
   const hasUserAgreement = Boolean(status?.user_agreement_enabled)
   const hasPrivacyPolicy = Boolean(status?.privacy_policy_enabled)
   const requiresLegalConsent = hasUserAgreement || hasPrivacyPolicy
-  const passkeyButtonDisabled =
-    isPasskeyLoading ||
-    !passkeySupported ||
-    (requiresLegalConsent && !agreedToLegal)
+  const passkeyButtonDisabled = isPasskeyLoading || !passkeySupported
   const hasWeChatLogin = Boolean(status?.wechat_login)
+
+  // Returns false (and shows a prompt + highlights the checkbox) when legal
+  // consent is required but not yet agreed. Used by every sign-in action.
+  const guardLegalConsent = () => {
+    if (requiresLegalConsent && !agreedToLegal) {
+      setConsentError(true)
+      toast.error(legalConsentErrorMessage)
+      return false
+    }
+    return true
+  }
 
   useEffect(() => {
     if (requiresLegalConsent) {
@@ -136,10 +145,7 @@ export function UserAuthForm({
   }, [status])
 
   async function onSubmit(data: z.infer<typeof loginFormSchema>) {
-    if (requiresLegalConsent && !agreedToLegal) {
-      toast.error(legalConsentErrorMessage)
-      return
-    }
+    if (!guardLegalConsent()) return
 
     if (!validateTurnstile()) return
 
@@ -168,10 +174,7 @@ export function UserAuthForm({
   }
 
   const handleOpenWeChatDialog = () => {
-    if (requiresLegalConsent && !agreedToLegal) {
-      toast.error(legalConsentErrorMessage)
-      return
-    }
+    if (!guardLegalConsent()) return
 
     setIsWeChatDialogOpen(true)
   }
@@ -208,10 +211,7 @@ export function UserAuthForm({
   }
 
   async function handlePasskeyLogin() {
-    if (requiresLegalConsent && !agreedToLegal) {
-      toast.error(legalConsentErrorMessage)
-      return
-    }
+    if (!guardLegalConsent()) return
 
     if (!passkeySupported) {
       toast.error(t('Passkey is not supported on this device'))
@@ -292,6 +292,8 @@ export function UserAuthForm({
               <FormControl>
                 <Input
                   placeholder={t('Enter your username or email')}
+                  autoComplete='username'
+                  autoFocus
                   {...field}
                 />
               </FormControl>
@@ -308,7 +310,11 @@ export function UserAuthForm({
             <FormItem className='relative'>
               <FormLabel>{t('Password')}</FormLabel>
               <FormControl>
-                <PasswordInput placeholder={t('Enter password')} {...field} />
+                <PasswordInput
+                  placeholder={t('Enter password')}
+                  autoComplete='current-password'
+                  {...field}
+                />
               </FormControl>
               <FormMessage />
               <Link
@@ -320,16 +326,6 @@ export function UserAuthForm({
             </FormItem>
           )}
         />
-
-        {/* Submit Button */}
-        <Button
-          type='submit'
-          className='mt-2 w-full justify-center gap-2'
-          disabled={isLoading || (requiresLegalConsent && !agreedToLegal)}
-        >
-          {isLoading ? <Loader2 className='animate-spin' /> : <LogIn />}
-          {t('Sign in')}
-        </Button>
 
         {/* Turnstile */}
         {isTurnstileEnabled && (
@@ -344,9 +340,27 @@ export function UserAuthForm({
         <LegalConsent
           status={status}
           checked={agreedToLegal}
-          onCheckedChange={setAgreedToLegal}
+          onCheckedChange={(value) => {
+            setAgreedToLegal(value)
+            if (value) setConsentError(false)
+          }}
+          invalid={consentError && !agreedToLegal}
           className='mt-1'
         />
+
+        {/* Submit Button */}
+        <Button
+          type='submit'
+          className='mt-2 w-full justify-center gap-2'
+          disabled={isLoading}
+        >
+          {isLoading ? (
+            <Loader2 className='h-4 w-4 animate-spin' />
+          ) : (
+            <LogIn className='h-4 w-4' />
+          )}
+          {t('Sign in')}
+        </Button>
 
         {passkeyLoginEnabled && (
           <div className='mt-2 space-y-1'>
@@ -375,7 +389,8 @@ export function UserAuthForm({
         {/* OAuth Providers */}
         <OAuthProviders
           status={status}
-          disabled={isLoading || (requiresLegalConsent && !agreedToLegal)}
+          disabled={isLoading}
+          onBeforeAction={guardLegalConsent}
           onWeChatLogin={hasWeChatLogin ? handleOpenWeChatDialog : undefined}
           isWeChatLoading={isWeChatSubmitting}
         />
