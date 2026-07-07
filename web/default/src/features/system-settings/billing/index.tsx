@@ -64,6 +64,7 @@ const defaultBillingSettings: BillingSettings = {
   MinTopUp: 1,
   CustomCallbackAddress: '',
   PayMethods: '',
+  OfflineRechargeSupportQRCodeImageURL: '',
   'payment_setting.amount_options': '',
   'payment_setting.amount_discount': '',
   'payment_setting.compliance_confirmed': false,

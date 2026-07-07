@@ -110,6 +110,16 @@ export function useSidebarData(): SidebarData {
             icon: Wallet,
           },
           {
+            title: t('Recharge'),
+            url: '/recharge',
+            icon: Wallet,
+          },
+          {
+            title: t('Invoices'),
+            url: '/invoices',
+            icon: FileText,
+          },
+          {
             title: t('Profile'),
             url: '/profile',
             icon: User,
@@ -144,6 +154,11 @@ export function useSidebarData(): SidebarData {
             title: t('Subscription Management'),
             url: '/subscriptions',
             icon: CreditCard,
+          },
+          {
+            title: t('Recharge & Invoice Review'),
+            url: '/recharge-invoice-review',
+            icon: FileText,
           },
           {
             title: t('System Settings'),

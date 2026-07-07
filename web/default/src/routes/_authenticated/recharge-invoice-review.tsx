@@ -16,28 +16,11 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { z } from 'zod'
-import { createFileRoute, redirect } from '@tanstack/react-router'
-import { useAuthStore } from '@/stores/auth-store'
-import { ROLE } from '@/lib/roles'
-import { Wallet } from '@/features/wallet'
+import { createFileRoute } from '@tanstack/react-router'
+import { AdminBalanceInvoices } from '@/features/balance-invoices'
 
-const walletSearchSchema = z.object({
-  show_history: z.boolean().optional(),
-})
-
-export const Route = createFileRoute('/_authenticated/wallet/')({
-  beforeLoad: () => {
-    const user = useAuthStore.getState().auth.user
-    if (!user || user.role < ROLE.ADMIN) {
-      throw redirect({ to: '/recharge' })
-    }
-  },
-  component: RouteComponent,
-  validateSearch: walletSearchSchema,
-})
-
-function RouteComponent() {
-  const { show_history } = Route.useSearch()
-  return <Wallet initialShowHistory={show_history} />
-}
+export const Route = createFileRoute('/_authenticated/recharge-invoice-review')(
+  {
+    component: AdminBalanceInvoices,
+  }
+)

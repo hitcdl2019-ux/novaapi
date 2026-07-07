@@ -31,6 +31,40 @@ func SetApiRouter(router *gin.Engine) {
 		//apiRouter.GET("/midjourney", controller.GetMidjourney)
 		apiRouter.GET("/home_page_content", middleware.DisableCache(), controller.GetHomePageContent)
 		apiRouter.GET("/pricing", middleware.HeaderNavModuleAuth("pricing"), controller.GetPricing)
+		offlineRechargeRoute := apiRouter.Group("/offline-recharge")
+		offlineRechargeRoute.Use(middleware.UserAuth())
+		{
+			offlineRechargeRoute.GET("/summary", controller.GetOfflineRechargeSummary)
+			offlineRechargeRoute.GET("/requests", controller.GetUserOfflineRechargeRequests)
+			offlineRechargeRoute.POST("/requests", middleware.CriticalRateLimit(), controller.CreateOfflineRechargeRequest)
+			offlineRechargeRoute.POST("/requests/:id/proof", middleware.CriticalRateLimit(), controller.UploadOfflineRechargeProof)
+			offlineRechargeRoute.POST("/requests/:id/cancel", controller.CancelOfflineRechargeRequest)
+			offlineRechargeRoute.GET("/requests/:id/proof", controller.GetOfflineRechargeProof)
+		}
+		adminOfflineRechargeRoute := apiRouter.Group("/admin/offline-recharge")
+		adminOfflineRechargeRoute.Use(middleware.AdminAuth())
+		{
+			adminOfflineRechargeRoute.GET("/requests", controller.AdminGetOfflineRechargeRequests)
+			adminOfflineRechargeRoute.POST("/requests/:id/complete", controller.AdminCompleteOfflineRechargeRequest)
+			adminOfflineRechargeRoute.POST("/requests/:id/reject", controller.AdminRejectOfflineRechargeRequest)
+			adminOfflineRechargeRoute.GET("/requests/:id/proof", controller.AdminGetOfflineRechargeProof)
+		}
+		invoiceRoute := apiRouter.Group("/invoices")
+		invoiceRoute.Use(middleware.UserAuth())
+		{
+			invoiceRoute.GET("/", controller.GetUserInvoiceRequests)
+			invoiceRoute.POST("/", middleware.CriticalRateLimit(), controller.CreateInvoiceRequest)
+			invoiceRoute.POST("/:id/cancel", controller.CancelInvoiceRequest)
+			invoiceRoute.GET("/:id/file", controller.GetInvoiceFile)
+		}
+		adminInvoiceRoute := apiRouter.Group("/admin/invoices")
+		adminInvoiceRoute.Use(middleware.AdminAuth())
+		{
+			adminInvoiceRoute.GET("/", controller.AdminGetInvoiceRequests)
+			adminInvoiceRoute.POST("/:id/issue", controller.AdminIssueInvoiceRequest)
+			adminInvoiceRoute.POST("/:id/reject", controller.AdminRejectInvoiceRequest)
+			adminInvoiceRoute.GET("/:id/file", controller.AdminGetInvoiceFile)
+		}
 		perfMetricsRoute := apiRouter.Group("/perf-metrics")
 		perfMetricsRoute.Use(middleware.HeaderNavModulePublicOrUserAuth("pricing"))
 		{

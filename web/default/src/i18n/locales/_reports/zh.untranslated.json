@@ -41,6 +41,7 @@
   "https://example.com": "https://example.com",
   "https://example.com/logo.png": "https://example.com/logo.png",
   "https://example.com/qr-code.png": "https://example.com/qr-code.png",
+  "https://example.com/support-qr.png": "https://example.com/support-qr.png",
   "https://example.com/topup": "https://example.com/topup",
   "https://example.com/webhook": "https://example.com/webhook",
   "https://gateway.example.com": "https://gateway.example.com",

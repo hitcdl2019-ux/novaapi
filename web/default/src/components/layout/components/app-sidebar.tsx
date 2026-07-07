@@ -53,12 +53,21 @@ export function AppSidebar() {
   // Non-Admin users cannot see Admin navigation group
   const currentNavGroups = useMemo(() => {
     const isAdmin = userRole && userRole >= ROLE.ADMIN
-    return configFilteredNavGroups.filter((group) => {
-      if (group.id === 'admin') {
-        return isAdmin
-      }
-      return true
-    })
+    return configFilteredNavGroups
+      .filter((group) => {
+        if (group.id === 'admin') {
+          return isAdmin
+        }
+        return true
+      })
+      .map((group) => {
+        if (group.id !== 'personal' || isAdmin) return group
+        return {
+          ...group,
+          items: group.items.filter((item) => item.url !== '/wallet'),
+        }
+      })
+      .filter((group) => group.items.length > 0)
   }, [configFilteredNavGroups, userRole])
 
   return (

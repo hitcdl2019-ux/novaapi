@@ -249,6 +249,9 @@ func InitLogDB() (err error) {
 }
 
 func migrateDB() error {
+	if err := repairSQLiteUserBusinessNoDDL(); err != nil {
+		return err
+	}
 	// Migrate price_amount column from float/double to decimal for existing tables
 	migrateSubscriptionPlanPriceAmount()
 	// Migrate model_limits column from varchar to text for existing tables
@@ -256,7 +259,7 @@ func migrateDB() error {
 		return err
 	}
 
-	err := DB.AutoMigrate(
+	models := []interface{}{
 		&Channel{},
 		&Token{},
 		&User{},
@@ -282,11 +285,18 @@ func migrateDB() error {
 		&CustomOAuthProvider{},
 		&UserOAuthBinding{},
 		&PerfMetric{},
-	)
+	}
+	if !common.UsingSQLite {
+		models = append(models, &OfflineRechargeRequest{}, &InvoiceRequest{})
+	}
+	err := DB.AutoMigrate(models...)
 	if err != nil {
 		return err
 	}
 	if common.UsingSQLite {
+		if err := ensureOfflineRechargeTablesSQLite(); err != nil {
+			return err
+		}
 		if err := ensureSubscriptionPlanTableSQLite(); err != nil {
 			return err
 		}
@@ -299,6 +309,113 @@ func migrateDB() error {
 	if err := migrateUserBusinessNumber(); err != nil {
 		return err
 	}
+	return nil
+}
+
+func ensureOfflineRechargeTablesSQLite() error {
+	if !common.UsingSQLite {
+		return nil
+	}
+	statements := []string{
+		`CREATE TABLE IF NOT EXISTS offline_recharge_requests (
+id integer,
+request_no varchar(64) UNIQUE,
+user_id integer,
+username text DEFAULT "",
+amount real DEFAULT 0,
+quota integer DEFAULT 0,
+status varchar(32) DEFAULT "pending_payment",
+contact_name varchar(128) DEFAULT "",
+contact_method varchar(255) DEFAULT "",
+invoice_required numeric,
+remark text,
+payment_proof_url varchar(512) DEFAULT "",
+payment_remark text,
+review_remark text,
+reviewed_by integer DEFAULT 0,
+reviewed_at integer DEFAULT 0,
+completed_at integer DEFAULT 0,
+created_at integer,
+updated_at integer,
+PRIMARY KEY (id)
+)`,
+		`CREATE INDEX IF NOT EXISTS idx_offline_recharge_requests_request_no ON offline_recharge_requests (request_no)`,
+		`CREATE INDEX IF NOT EXISTS idx_offline_recharge_requests_user_id ON offline_recharge_requests (user_id)`,
+		`CREATE INDEX IF NOT EXISTS idx_offline_recharge_requests_username ON offline_recharge_requests (username)`,
+		`CREATE INDEX IF NOT EXISTS idx_offline_recharge_requests_status ON offline_recharge_requests (status)`,
+		`CREATE INDEX IF NOT EXISTS idx_offline_recharge_requests_created_at ON offline_recharge_requests (created_at)`,
+		`CREATE INDEX IF NOT EXISTS idx_offline_recharge_requests_updated_at ON offline_recharge_requests (updated_at)`,
+		`CREATE TABLE IF NOT EXISTS invoice_requests (
+id integer,
+invoice_no varchar(64) UNIQUE,
+user_id integer,
+username text DEFAULT "",
+recharge_request_id integer,
+recharge_request_ids text DEFAULT "",
+recharge_request_no varchar(64) DEFAULT "",
+amount real DEFAULT 0,
+status varchar(32) DEFAULT "pending",
+invoice_type varchar(32) DEFAULT "",
+title varchar(255) DEFAULT "",
+tax_no varchar(128) DEFAULT "",
+email varchar(255) DEFAULT "",
+address varchar(255) DEFAULT "",
+phone varchar(64) DEFAULT "",
+bank_name varchar(255) DEFAULT "",
+bank_account varchar(128) DEFAULT "",
+remark text,
+file_url varchar(512) DEFAULT "",
+review_remark text,
+reviewed_by integer DEFAULT 0,
+reviewed_at integer DEFAULT 0,
+created_at integer,
+updated_at integer,
+PRIMARY KEY (id)
+)`,
+		`CREATE INDEX IF NOT EXISTS idx_invoice_requests_invoice_no ON invoice_requests (invoice_no)`,
+		`CREATE INDEX IF NOT EXISTS idx_invoice_requests_user_id ON invoice_requests (user_id)`,
+		`CREATE INDEX IF NOT EXISTS idx_invoice_requests_username ON invoice_requests (username)`,
+		`CREATE INDEX IF NOT EXISTS idx_invoice_requests_recharge_request_id ON invoice_requests (recharge_request_id)`,
+		`CREATE INDEX IF NOT EXISTS idx_invoice_requests_status ON invoice_requests (status)`,
+		`CREATE INDEX IF NOT EXISTS idx_invoice_requests_created_at ON invoice_requests (created_at)`,
+		`CREATE INDEX IF NOT EXISTS idx_invoice_requests_updated_at ON invoice_requests (updated_at)`,
+	}
+	for _, statement := range statements {
+		if err := DB.Exec(statement).Error; err != nil {
+			return err
+		}
+	}
+	if !DB.Migrator().HasColumn(&InvoiceRequest{}, "recharge_request_ids") {
+		if err := DB.Exec("ALTER TABLE `invoice_requests` ADD COLUMN `recharge_request_ids` text DEFAULT ''").Error; err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func repairSQLiteUserBusinessNoDDL() error {
+	if !common.UsingSQLite {
+		return nil
+	}
+	var ddl string
+	if err := DB.Raw("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'users'").Scan(&ddl).Error; err != nil {
+		return err
+	}
+	if ddl == "" || strings.Contains(ddl, "`business_no`") || strings.Contains(ddl, `"business_no"`) {
+		return nil
+	}
+	fixed := strings.Replace(ddl, ", business_no varchar(32)", ",`business_no` varchar(32)", 1)
+	if fixed == ddl {
+		return nil
+	}
+	if err := DB.Exec("PRAGMA writable_schema=ON").Error; err != nil {
+		return err
+	}
+	defer DB.Exec("PRAGMA writable_schema=OFF")
+	if err := DB.Exec("UPDATE sqlite_master SET sql = ? WHERE type = 'table' AND name = 'users'", fixed).Error; err != nil {
+		return err
+	}
+	common.SysLog("repaired SQLite users.business_no DDL")
 	return nil
 }
 
@@ -320,6 +437,8 @@ func migrateDBFast() error {
 		{&Log{}, "Log"},
 		{&Midjourney{}, "Midjourney"},
 		{&TopUp{}, "TopUp"},
+		{&OfflineRechargeRequest{}, "OfflineRechargeRequest"},
+		{&InvoiceRequest{}, "InvoiceRequest"},
 		{&QuotaData{}, "QuotaData"},
 		{&Task{}, "Task"},
 		{&Model{}, "Model"},

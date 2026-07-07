@@ -92,6 +92,11 @@ const paymentSchema = z.object({
       })
     }
   }),
+  OfflineRechargeSupportQRCodeImageURL: z.string().refine((value) => {
+    const trimmed = value.trim()
+    if (!trimmed) return true
+    return /^https?:\/\//.test(trimmed) || trimmed.startsWith('/')
+  }, 'Provide a valid image URL starting with http://, https://, or /'),
   AmountOptions: z.string().superRefine((value, ctx) => {
     const error = getJsonError(value, (parsed) => Array.isArray(parsed))
     if (error) {
@@ -284,6 +289,8 @@ export function PaymentSettingsSection({
       Price: values.Price as number,
       MinTopUp: values.MinTopUp as number,
       PayMethods: values.PayMethods.trim(),
+      OfflineRechargeSupportQRCodeImageURL:
+        values.OfflineRechargeSupportQRCodeImageURL.trim(),
       AmountOptions: values.AmountOptions.trim(),
       AmountDiscount: values.AmountDiscount.trim(),
     }
@@ -292,6 +299,8 @@ export function PaymentSettingsSection({
       Price: initialRef.current.Price,
       MinTopUp: initialRef.current.MinTopUp,
       PayMethods: initialRef.current.PayMethods.trim(),
+      OfflineRechargeSupportQRCodeImageURL:
+        initialRef.current.OfflineRechargeSupportQRCodeImageURL.trim(),
       AmountOptions: initialRef.current.AmountOptions.trim(),
       AmountDiscount: initialRef.current.AmountDiscount.trim(),
     }
@@ -311,6 +320,16 @@ export function PaymentSettingsSection({
       normalizeJsonForComparison(initial.PayMethods)
     ) {
       updates.push({ key: 'PayMethods', value: sanitized.PayMethods })
+    }
+
+    if (
+      sanitized.OfflineRechargeSupportQRCodeImageURL !==
+      initial.OfflineRechargeSupportQRCodeImageURL
+    ) {
+      updates.push({
+        key: 'OfflineRechargeSupportQRCodeImageURL',
+        value: sanitized.OfflineRechargeSupportQRCodeImageURL,
+      })
     }
 
     if (
@@ -526,6 +545,8 @@ export function PaymentSettingsSection({
       MinTopUp: values.MinTopUp,
       CustomCallbackAddress: removeTrailingSlash(values.CustomCallbackAddress),
       PayMethods: values.PayMethods.trim(),
+      OfflineRechargeSupportQRCodeImageURL:
+        values.OfflineRechargeSupportQRCodeImageURL.trim(),
       AmountOptions: values.AmountOptions.trim(),
       AmountDiscount: values.AmountDiscount.trim(),
       StripeApiSecret: values.StripeApiSecret.trim(),
@@ -546,6 +567,8 @@ export function PaymentSettingsSection({
         initialRef.current.CustomCallbackAddress
       ),
       PayMethods: initialRef.current.PayMethods.trim(),
+      OfflineRechargeSupportQRCodeImageURL:
+        initialRef.current.OfflineRechargeSupportQRCodeImageURL.trim(),
       AmountOptions: initialRef.current.AmountOptions.trim(),
       AmountDiscount: initialRef.current.AmountDiscount.trim(),
       StripeApiSecret: initialRef.current.StripeApiSecret.trim(),
@@ -591,6 +614,16 @@ export function PaymentSettingsSection({
       normalizeJsonForComparison(initial.PayMethods)
     ) {
       updates.push({ key: 'PayMethods', value: sanitized.PayMethods })
+    }
+
+    if (
+      sanitized.OfflineRechargeSupportQRCodeImageURL !==
+      initial.OfflineRechargeSupportQRCodeImageURL
+    ) {
+      updates.push({
+        key: 'OfflineRechargeSupportQRCodeImageURL',
+        value: sanitized.OfflineRechargeSupportQRCodeImageURL,
+      })
     }
 
     if (
@@ -848,6 +881,29 @@ export function PaymentSettingsSection({
                   <FormDescription>
                     {t(
                       'Configure available payment methods. Provide a JSON array.'
+                    )}
+                  </FormDescription>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name='OfflineRechargeSupportQRCodeImageURL'
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>{t('Offline recharge support QR code')}</FormLabel>
+                  <FormControl>
+                    <Input
+                      placeholder={t('https://example.com/support-qr.png')}
+                      {...field}
+                      onChange={(event) => field.onChange(event.target.value)}
+                    />
+                  </FormControl>
+                  <FormDescription>
+                    {t(
+                      'Shown after users submit an offline recharge request. Leave blank to hide the QR code.'
                     )}
                   </FormDescription>
                   <FormMessage />
