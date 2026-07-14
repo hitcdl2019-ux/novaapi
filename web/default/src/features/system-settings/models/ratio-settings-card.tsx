@@ -84,6 +84,7 @@ const modelSchema = z.object({
       })
     }
   }),
+  CompletionRatioMeta: z.string(),
   ImageRatio: z.string().superRefine((value, ctx) => {
     const result = validateJsonString(value)
     if (!result.valid) {

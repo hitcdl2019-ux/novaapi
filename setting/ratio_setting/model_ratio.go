@@ -274,36 +274,36 @@ var defaultModelRatio = map[string]float64{
 	"deepseek-ai/DeepSeek-R1":                 0.8,
 	"deepseek-ai/DeepSeek-V3-0324":            0.8,
 	"deepseek-ai/DeepSeek-V3.1":               0.8,
-		// stepfun
-		"step-1-8k":   0.1,
-		"step-1-32k":  0.2,
-		"step-1-128k": 0.5,
-		"step-1-flash": 0.05,
-		"step-1v-8k":  0.15,
-		"step-1v-32k": 0.3,
-		"step-2-16k":  0.3,
-		// baichuan
-		"Baichuan4":       0.1,
-		"Baichuan4-Turbo": 0.08,
-		"Baichuan4-Air":   0.01,
-		"Baichuan3-Turbo": 0.05,
-		"Baichuan2-Turbo": 0.02,
-		// sensenova
-		"SenseChat-5":       0.15,
-		"SenseChat-5-Turbo": 0.1,
-		"SenseChat-5-Lite":  0.02,
-		"SenseChat-Character": 0.05,
-		"SenseNova-TurboS":  0.05,
-		// minicpm
-		"MiniCPM-3.0":       0.05,
-		"MiniCPM-4.0":       0.1,
-		"MiniCPM-Embedding": 0.01,
-		"MiniCPM-Rerank":    0.01,
-		// skywork
-		"skywork-4.0":       0.08,
-		"skywork-4.0-turbo": 0.05,
-		"skywork-3.0":       0.02,
-		"skywork-2.0":       0.01,
+	// stepfun
+	"step-1-8k":    0.1,
+	"step-1-32k":   0.2,
+	"step-1-128k":  0.5,
+	"step-1-flash": 0.05,
+	"step-1v-8k":   0.15,
+	"step-1v-32k":  0.3,
+	"step-2-16k":   0.3,
+	// baichuan
+	"Baichuan4":       0.1,
+	"Baichuan4-Turbo": 0.08,
+	"Baichuan4-Air":   0.01,
+	"Baichuan3-Turbo": 0.05,
+	"Baichuan2-Turbo": 0.02,
+	// sensenova
+	"SenseChat-5":         0.15,
+	"SenseChat-5-Turbo":   0.1,
+	"SenseChat-5-Lite":    0.02,
+	"SenseChat-Character": 0.05,
+	"SenseNova-TurboS":    0.05,
+	// minicpm
+	"MiniCPM-3.0":       0.05,
+	"MiniCPM-4.0":       0.1,
+	"MiniCPM-Embedding": 0.01,
+	"MiniCPM-Rerank":    0.01,
+	// skywork
+	"skywork-4.0":       0.08,
+	"skywork-4.0-turbo": 0.05,
+	"skywork-3.0":       0.02,
+	"skywork-2.0":       0.01,
 }
 
 var defaultModelPrice = map[string]float64{
@@ -473,17 +473,13 @@ func UpdateCompletionRatioByJSONString(jsonStr string) error {
 func GetCompletionRatio(name string) float64 {
 	name = FormatMatchingModelName(name)
 
-	if strings.Contains(name, "/") {
-		if ratio, ok := completionRatioMap.Get(name); ok {
-			return ratio
-		}
+	if ratio, ok := completionRatioMap.Get(name); ok {
+		return ratio
 	}
+
 	hardCodedRatio, contain := getHardcodedCompletionModelRatio(name)
 	if contain {
 		return hardCodedRatio
-	}
-	if ratio, ok := completionRatioMap.Get(name); ok {
-		return ratio
 	}
 	return hardCodedRatio
 }
@@ -496,12 +492,10 @@ type CompletionRatioInfo struct {
 func GetCompletionRatioInfo(name string) CompletionRatioInfo {
 	name = FormatMatchingModelName(name)
 
-	if strings.Contains(name, "/") {
-		if ratio, ok := completionRatioMap.Get(name); ok {
-			return CompletionRatioInfo{
-				Ratio:  ratio,
-				Locked: false,
-			}
+	if ratio, ok := completionRatioMap.Get(name); ok {
+		return CompletionRatioInfo{
+			Ratio:  ratio,
+			Locked: false,
 		}
 	}
 
@@ -510,13 +504,6 @@ func GetCompletionRatioInfo(name string) CompletionRatioInfo {
 		return CompletionRatioInfo{
 			Ratio:  hardCodedRatio,
 			Locked: true,
-		}
-	}
-
-	if ratio, ok := completionRatioMap.Get(name); ok {
-		return CompletionRatioInfo{
-			Ratio:  ratio,
-			Locked: false,
 		}
 	}
 

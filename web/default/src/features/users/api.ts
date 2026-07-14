@@ -197,6 +197,10 @@ export interface UserVendorRatioData {
   vendors: VendorOption[]
 }
 
+export interface UserTokenCoefficientData {
+  token_coefficient: number
+}
+
 /**
  * Get a user's per-vendor discount ratios and the vendor list (admin)
  */
@@ -215,5 +219,22 @@ export async function updateUserVendorRatio(
   ratios: Record<string, number>
 ): Promise<ApiResponse> {
   const res = await api.put(`/api/user/${userId}/vendor_ratio`, { ratios })
+  return res.data
+}
+
+export async function getUserTokenCoefficient(
+  userId: number
+): Promise<ApiResponse<UserTokenCoefficientData>> {
+  const res = await api.get(`/api/user/${userId}/token_coefficient`)
+  return res.data
+}
+
+export async function updateUserTokenCoefficient(
+  userId: number,
+  tokenCoefficient: number
+): Promise<ApiResponse> {
+  const res = await api.put(`/api/user/${userId}/token_coefficient`, {
+    token_coefficient: tokenCoefficient,
+  })
   return res.data
 }

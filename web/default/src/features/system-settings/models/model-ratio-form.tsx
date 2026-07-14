@@ -40,6 +40,7 @@ type ModelFormValues = {
   CacheRatio: string
   CreateCacheRatio: string
   CompletionRatio: string
+  CompletionRatioMeta: string
   ImageRatio: string
   AudioRatio: string
   AudioCompletionRatio: string
@@ -107,6 +108,7 @@ export const ModelRatioForm = memo(function ModelRatioForm({
               cacheRatio={form.watch('CacheRatio')}
               createCacheRatio={form.watch('CreateCacheRatio')}
               completionRatio={form.watch('CompletionRatio')}
+              completionRatioMeta={form.watch('CompletionRatioMeta')}
               imageRatio={form.watch('ImageRatio')}
               audioRatio={form.watch('AudioRatio')}
               audioCompletionRatio={form.watch('AudioCompletionRatio')}

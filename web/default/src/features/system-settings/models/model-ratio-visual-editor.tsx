@@ -74,6 +74,7 @@ type ModelRatioVisualEditorProps = {
   cacheRatio: string
   createCacheRatio: string
   completionRatio: string
+  completionRatioMeta: string
   imageRatio: string
   audioRatio: string
   audioCompletionRatio: string
@@ -89,6 +90,8 @@ type ModelRow = {
   cacheRatio?: string
   createCacheRatio?: string
   completionRatio?: string
+  effectiveCompletionRatio?: string
+  completionRatioLocked?: boolean
   imageRatio?: string
   audioRatio?: string
   audioCompletionRatio?: string
@@ -102,6 +105,11 @@ const STORAGE_KEY = 'model-ratio-column-visibility'
 
 const hasValue = (value?: string) => value !== undefined && value !== ''
 
+type CompletionRatioMeta = {
+  ratio?: number
+  locked?: boolean
+}
+
 const toNumberOrNull = (value?: string) => {
   if (!hasValue(value)) return null
   const num = Number(value)
@@ -114,6 +122,9 @@ const ratioToPrice = (ratio?: string, denominator?: string) => {
   if (ratioNumber === null || denominatorNumber === null) return ''
   return formatPricingNumber(ratioNumber * denominatorNumber)
 }
+
+const getDisplayCompletionRatio = (row: ModelRow) =>
+  row.effectiveCompletionRatio || row.completionRatio
 
 const filterBySelectedValues = (
   rowValue: unknown,
@@ -168,7 +179,7 @@ const getPriceSummary = (
   if (!inputPrice) return t('Unset price')
 
   const extraCount = [
-    row.completionRatio,
+    getDisplayCompletionRatio(row),
     row.cacheRatio,
     row.createCacheRatio,
     row.imageRatio,
@@ -203,8 +214,11 @@ const getPriceDetail = (
   if (!inputPrice) return t('No base input price')
 
   const details = [
-    row.completionRatio &&
-      `${t('Output')} ${symbol}${ratioToPrice(row.completionRatio, inputPrice)}`,
+    getDisplayCompletionRatio(row) &&
+      `${t('Output')} ${symbol}${ratioToPrice(
+        getDisplayCompletionRatio(row),
+        inputPrice
+      )}`,
     row.cacheRatio &&
       `${t('Cache')} ${symbol}${ratioToPrice(row.cacheRatio, inputPrice)}`,
     row.createCacheRatio &&
@@ -221,6 +235,7 @@ export const ModelRatioVisualEditor = memo(
     cacheRatio,
     createCacheRatio,
     completionRatio,
+    completionRatioMeta,
     imageRatio,
     audioRatio,
     audioCompletionRatio,
@@ -303,6 +318,12 @@ export const ModelRatioVisualEditor = memo(
         completionRatio,
         { fallback: {}, context: 'completion ratios' }
       )
+      const completionMetaMap = safeJsonParse<
+        Record<string, CompletionRatioMeta>
+      >(completionRatioMeta, {
+        fallback: {},
+        context: 'completion ratio meta',
+      })
       const imageMap = safeJsonParse<Record<string, number>>(imageRatio, {
         fallback: {},
         context: 'image ratios',
@@ -349,6 +370,12 @@ export const ModelRatioVisualEditor = memo(
         const cache = cacheMap[name]?.toString() || ''
         const createCache = createCacheMap[name]?.toString() || ''
         const completion = completionMap[name]?.toString() || ''
+        const completionMeta = completionMetaMap[name]
+        const effectiveCompletion =
+          completionMeta?.ratio !== undefined &&
+          Number.isFinite(completionMeta.ratio)
+            ? completionMeta.ratio.toString()
+            : completion
         const image = imageMap[name]?.toString() || ''
         const audio = audioMap[name]?.toString() || ''
         const audioCompletion = audioCompletionMap[name]?.toString() || ''
@@ -371,6 +398,8 @@ export const ModelRatioVisualEditor = memo(
             cacheRatio: cache,
             createCacheRatio: createCache,
             completionRatio: completion,
+            effectiveCompletionRatio: effectiveCompletion,
+            completionRatioLocked: completionMeta?.locked === true,
             imageRatio: image,
             audioRatio: audio,
             audioCompletionRatio: audioCompletion,
@@ -385,6 +414,8 @@ export const ModelRatioVisualEditor = memo(
           cacheRatio: cache,
           createCacheRatio: createCache,
           completionRatio: completion,
+          effectiveCompletionRatio: effectiveCompletion,
+          completionRatioLocked: completionMeta?.locked === true,
           imageRatio: image,
           audioRatio: audio,
           audioCompletionRatio: audioCompletion,
@@ -408,6 +439,7 @@ export const ModelRatioVisualEditor = memo(
       cacheRatio,
       createCacheRatio,
       completionRatio,
+      completionRatioMeta,
       imageRatio,
       audioRatio,
       audioCompletionRatio,
@@ -1061,6 +1093,7 @@ export const ModelRatioVisualEditor = memo(
       prevProps.cacheRatio === nextProps.cacheRatio &&
       prevProps.createCacheRatio === nextProps.createCacheRatio &&
       prevProps.completionRatio === nextProps.completionRatio &&
+      prevProps.completionRatioMeta === nextProps.completionRatioMeta &&
       prevProps.imageRatio === nextProps.imageRatio &&
       prevProps.audioRatio === nextProps.audioRatio &&
       prevProps.audioCompletionRatio === nextProps.audioCompletionRatio &&

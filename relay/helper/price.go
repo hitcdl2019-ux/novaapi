@@ -2,6 +2,7 @@ package helper
 
 import (
 	"fmt"
+	"math"
 	"strings"
 
 	"github.com/QuantumNous/new-api/common"
@@ -34,6 +35,21 @@ func modelPriceNotConfiguredError(modelName string, userId int) error {
 
 // https://docs.claude.com/en/docs/build-with-claude/prompt-caching#1-hour-cache-duration
 const claudeCacheCreation1hMultiplier = 6 / 3.75
+
+func normalizeTokenCoefficient(coefficient float64) float64 {
+	if coefficient <= 0 {
+		return 1
+	}
+	return coefficient
+}
+
+func applyTokenCoefficient(tokens int, coefficient float64) int {
+	coefficient = normalizeTokenCoefficient(coefficient)
+	if tokens <= 0 || coefficient == 1 {
+		return tokens
+	}
+	return int(math.Round(float64(tokens) * coefficient))
+}
 
 // HandleGroupRatio checks for "auto_group" in the context and updates the group ratio and relayInfo.UsingGroup if present
 func HandleGroupRatio(ctx *gin.Context, relayInfo *relaycommon.RelayInfo) types.GroupRatioInfo {
@@ -95,9 +111,10 @@ func ModelPriceHelper(c *gin.Context, info *relaycommon.RelayInfo, promptTokens 
 	var audioCompletionRatio float64
 	var freeModel bool
 	if !usePrice {
-		preConsumedTokens := common.Max(promptTokens, common.PreConsumedQuota)
+		tokenCoefficient := normalizeTokenCoefficient(info.UserSetting.TokenCoefficient)
+		preConsumedTokens := common.Max(applyTokenCoefficient(promptTokens, tokenCoefficient), common.PreConsumedQuota)
 		if meta.MaxTokens != 0 {
-			preConsumedTokens += meta.MaxTokens
+			preConsumedTokens += applyTokenCoefficient(meta.MaxTokens, tokenCoefficient)
 		}
 		var success bool
 		var matchName string
@@ -263,10 +280,14 @@ func modelPriceHelperTiered(c *gin.Context, info *relaycommon.RelayInfo, promptT
 		return types.PriceData{}, err
 	}
 
+	tokenCoefficient := normalizeTokenCoefficient(info.UserSetting.TokenCoefficient)
+	scaledPromptTokens := applyTokenCoefficient(promptTokens, tokenCoefficient)
+	scaledEstimatedCompletionTokens := applyTokenCoefficient(estimatedCompletionTokens, tokenCoefficient)
+
 	rawCost, trace, err := billingexpr.RunExprWithRequest(exprStr, billingexpr.TokenParams{
-		P:   float64(promptTokens),
-		C:   float64(estimatedCompletionTokens),
-		Len: float64(promptTokens),
+		P:   float64(scaledPromptTokens),
+		C:   float64(scaledEstimatedCompletionTokens),
+		Len: float64(scaledPromptTokens),
 	}, requestInput)
 	if err != nil {
 		return types.PriceData{}, fmt.Errorf("model %s tiered expr run failed: %w", info.OriginModelName, err)
@@ -291,8 +312,8 @@ func modelPriceHelperTiered(c *gin.Context, info *relaycommon.RelayInfo, promptT
 		ExprString:                exprStr,
 		ExprHash:                  exprHash,
 		GroupRatio:                groupRatioInfo.GroupRatio,
-		EstimatedPromptTokens:     promptTokens,
-		EstimatedCompletionTokens: estimatedCompletionTokens,
+		EstimatedPromptTokens:     scaledPromptTokens,
+		EstimatedCompletionTokens: scaledEstimatedCompletionTokens,
 		EstimatedQuotaBeforeGroup: quotaBeforeGroup,
 		EstimatedQuotaAfterGroup:  preConsumedQuota,
 		EstimatedTier:             trace.MatchedTier,

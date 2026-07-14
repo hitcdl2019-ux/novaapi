@@ -15,6 +15,32 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func TestApplyTokenCoefficientToTextSummary(t *testing.T) {
+	summary := textQuotaSummary{
+		PromptTokens:          120,
+		CompletionTokens:      81,
+		CacheTokens:           33,
+		CacheCreationTokens:   11,
+		CacheCreationTokens5m: 7,
+		CacheCreationTokens1h: 5,
+	}
+
+	applyTokenCoefficientToTextSummary(&summary, 1.5)
+
+	require.Equal(t, 1.5, summary.TokenCoefficient)
+	require.Equal(t, 120, summary.RawPromptTokens)
+	require.Equal(t, 81, summary.RawCompletionTokens)
+	require.Equal(t, 33, summary.RawCacheTokens)
+	require.Equal(t, 11, summary.RawCacheCreationTokens)
+	require.Equal(t, 180, summary.PromptTokens)
+	require.Equal(t, 122, summary.CompletionTokens)
+	require.Equal(t, 50, summary.CacheTokens)
+	require.Equal(t, 17, summary.CacheCreationTokens)
+	require.Equal(t, 11, summary.CacheCreationTokens5m)
+	require.Equal(t, 8, summary.CacheCreationTokens1h)
+	require.Equal(t, 302, summary.TotalTokens)
+}
+
 func TestCalculateTextQuotaSummaryUnifiedForClaudeSemantic(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	w := httptest.NewRecorder()

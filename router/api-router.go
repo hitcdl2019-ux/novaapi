@@ -170,6 +170,8 @@ func SetApiRouter(router *gin.Engine) {
 				adminRoute.GET("/:id", controller.GetUser)
 				adminRoute.GET("/:id/vendor_ratio", controller.GetUserVendorRatio)
 				adminRoute.PUT("/:id/vendor_ratio", controller.UpdateUserVendorRatio)
+				adminRoute.GET("/:id/token_coefficient", controller.GetUserTokenCoefficient)
+				adminRoute.PUT("/:id/token_coefficient", controller.UpdateUserTokenCoefficient)
 				adminRoute.POST("/", controller.CreateUser)
 				adminRoute.POST("/manage", controller.ManageUser)
 				adminRoute.PUT("/", controller.UpdateUser)

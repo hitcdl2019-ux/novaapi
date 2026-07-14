@@ -21,7 +21,10 @@ import { type ColumnDef } from '@tanstack/react-table'
 import { CircleAlert, Sparkles, KeyRound } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { getUserAvatarFallback, getUserAvatarStyle } from '@/lib/avatar'
-import { formatBillingCurrencyFromUSD } from '@/lib/currency'
+import {
+  formatBillingCurrencyFromUSD,
+  getCurrencyDisplay,
+} from '@/lib/currency'
 import {
   formatUseTime,
   formatLogQuota,
@@ -87,6 +90,49 @@ function getGroupRatioText(other: LogOtherData | null): string | null {
   }
 
   return null
+}
+
+function roundUpAbs(value: number, digits: number): number {
+  if (value === 0) return value
+
+  const factor = Math.pow(10, digits)
+  const rounded = Math.ceil(Math.abs(value) * factor - 1e-10) / factor
+  return value < 0 ? -rounded : rounded
+}
+
+function formatCostQuota(quota: number): string {
+  if (quota == null || Number.isNaN(quota)) return '-'
+
+  const { config, meta } = getCurrencyDisplay()
+  const digits = 2
+
+  if (meta.kind === 'tokens') {
+    return new Intl.NumberFormat(undefined, {
+      minimumFractionDigits: digits,
+      maximumFractionDigits: digits,
+    }).format(roundUpAbs(quota, digits))
+  }
+
+  const amountUSD = quota / config.quotaPerUnit
+  const value = amountUSD * meta.exchangeRate
+  const roundedValue = roundUpAbs(value, digits)
+
+  if (meta.kind === 'currency') {
+    return new Intl.NumberFormat(undefined, {
+      style: 'currency',
+      currency: meta.currencyCode,
+      currencyDisplay: 'narrowSymbol',
+      minimumFractionDigits: digits,
+      maximumFractionDigits: digits,
+    }).format(roundedValue)
+  }
+
+  const decimal = new Intl.NumberFormat(undefined, {
+    minimumFractionDigits: digits,
+    maximumFractionDigits: digits,
+  }).format(roundedValue)
+
+  return `${meta.symbol}${decimal}`
 }
 
 function buildDetailSegments(
@@ -741,7 +787,7 @@ export function useCommonLogsColumns(isAdmin: boolean): ColumnDef<UsageLog>[] {
                 </TooltipTrigger>
                 <TooltipContent>
                   <span>
-                    {t('Deducted by subscription')}: {formatLogQuota(quota)}
+                    {t('Deducted by subscription')}: {formatCostQuota(quota)}
                   </span>
                 </TooltipContent>
               </Tooltip>
@@ -749,7 +795,7 @@ export function useCommonLogsColumns(isAdmin: boolean): ColumnDef<UsageLog>[] {
           )
         }
 
-        const quotaStr = formatLogQuota(quota)
+        const quotaStr = formatCostQuota(quota)
 
         return (
           <div className='flex flex-col gap-0.5'>

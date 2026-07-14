@@ -342,6 +342,73 @@ func UpdateUserVendorRatio(c *gin.Context) {
 	common.ApiSuccess(c, nil)
 }
 
+func GetUserTokenCoefficient(c *gin.Context) {
+	id, err := strconv.Atoi(c.Param("id"))
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	user, err := model.GetUserById(id, false)
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	myRole := c.GetInt("role")
+	if !canManageTargetRole(myRole, user.Role) {
+		common.ApiErrorI18n(c, i18n.MsgUserNoPermissionSameLevel)
+		return
+	}
+
+	coefficient := user.GetSetting().TokenCoefficient
+	if coefficient <= 0 {
+		coefficient = 1
+	}
+	common.ApiSuccess(c, gin.H{
+		"token_coefficient": coefficient,
+	})
+}
+
+type updateUserTokenCoefficientRequest struct {
+	TokenCoefficient float64 `json:"token_coefficient"`
+}
+
+func UpdateUserTokenCoefficient(c *gin.Context) {
+	id, err := strconv.Atoi(c.Param("id"))
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	var req updateUserTokenCoefficientRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	if req.TokenCoefficient <= 0 || req.TokenCoefficient > 100 {
+		common.ApiErrorMsg(c, "token coefficient must be greater than 0 and no more than 100")
+		return
+	}
+
+	user, err := model.GetUserById(id, true)
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	myRole := c.GetInt("role")
+	if !canManageTargetRole(myRole, user.Role) {
+		common.ApiErrorI18n(c, i18n.MsgUserNoPermissionSameLevel)
+		return
+	}
+
+	settings := user.GetSetting()
+	settings.TokenCoefficient = req.TokenCoefficient
+	user.SetSetting(settings)
+	if err := user.Update(false); err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	common.ApiSuccess(c, nil)
+}
+
 func GenerateAccessToken(c *gin.Context) {
 	id := c.GetInt("id")
 	user, err := model.GetUserById(id, true)
@@ -1291,6 +1358,7 @@ func UpdateUserSetting(c *gin.Context) {
 		UpstreamModelUpdateNotifyEnabled: upstreamModelUpdateNotifyEnabled,
 		AcceptUnsetRatioModel:            req.AcceptUnsetModelRatioModel,
 		RecordIpLog:                      req.RecordIpLog,
+		TokenCoefficient:                 existingSettings.TokenCoefficient,
 	}
 
 	// 如果是webhook类型,添加webhook相关设置

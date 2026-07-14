@@ -31,6 +31,7 @@ const getModelDefaults = (settings: BillingSettings) => ({
   CacheRatio: settings.CacheRatio,
   CreateCacheRatio: settings.CreateCacheRatio,
   CompletionRatio: settings.CompletionRatio,
+  CompletionRatioMeta: settings.CompletionRatioMeta,
   ImageRatio: settings.ImageRatio,
   AudioRatio: settings.AudioRatio,
   AudioCompletionRatio: settings.AudioCompletionRatio,

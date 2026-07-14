@@ -2,6 +2,7 @@ package service
 
 import (
 	"fmt"
+	"math"
 	"strings"
 	"time"
 
@@ -55,6 +56,13 @@ type textQuotaSummary struct {
 	AudioInputPrice          float64
 	ImageGenerationCallPrice float64
 	ToolCallSurchargeQuota   decimal.Decimal
+	TokenCoefficient         float64
+	RawPromptTokens          int
+	RawCompletionTokens      int
+	RawCacheTokens           int
+	RawCacheCreationTokens   int
+	RawCacheCreationTokens5m int
+	RawCacheCreationTokens1h int
 }
 
 func cacheWriteTokensTotal(summary textQuotaSummary) int {
@@ -79,6 +87,58 @@ func isLegacyClaudeDerivedOpenAIUsage(relayInfo *relaycommon.RelayInfo, usage *d
 		return false
 	}
 	return usage.ClaudeCacheCreation5mTokens > 0 || usage.ClaudeCacheCreation1hTokens > 0
+}
+
+func normalizeTokenCoefficient(coefficient float64) float64 {
+	if coefficient <= 0 {
+		return 1
+	}
+	return coefficient
+}
+
+func applyTokenCoefficient(tokens int, coefficient float64) int {
+	if tokens <= 0 || coefficient == 1 {
+		return tokens
+	}
+	return int(math.Round(float64(tokens) * coefficient))
+}
+
+func applyTokenCoefficientToTextSummary(summary *textQuotaSummary, coefficient float64) {
+	coefficient = normalizeTokenCoefficient(coefficient)
+	summary.TokenCoefficient = coefficient
+	if coefficient == 1 {
+		return
+	}
+
+	summary.RawPromptTokens = summary.PromptTokens
+	summary.RawCompletionTokens = summary.CompletionTokens
+	summary.RawCacheTokens = summary.CacheTokens
+	summary.RawCacheCreationTokens = summary.CacheCreationTokens
+	summary.RawCacheCreationTokens5m = summary.CacheCreationTokens5m
+	summary.RawCacheCreationTokens1h = summary.CacheCreationTokens1h
+
+	summary.PromptTokens = applyTokenCoefficient(summary.PromptTokens, coefficient)
+	summary.CompletionTokens = applyTokenCoefficient(summary.CompletionTokens, coefficient)
+	summary.CacheTokens = applyTokenCoefficient(summary.CacheTokens, coefficient)
+	summary.CacheCreationTokens = applyTokenCoefficient(summary.CacheCreationTokens, coefficient)
+	summary.CacheCreationTokens5m = applyTokenCoefficient(summary.CacheCreationTokens5m, coefficient)
+	summary.CacheCreationTokens1h = applyTokenCoefficient(summary.CacheCreationTokens1h, coefficient)
+	summary.TotalTokens = summary.PromptTokens + summary.CompletionTokens
+}
+
+func buildScaledTieredUsage(usage *dto.Usage, summary textQuotaSummary) *dto.Usage {
+	if usage == nil {
+		return nil
+	}
+	scaled := *usage
+	scaled.PromptTokens = summary.PromptTokens
+	scaled.CompletionTokens = summary.CompletionTokens
+	scaled.TotalTokens = summary.PromptTokens + summary.CompletionTokens
+	scaled.PromptTokensDetails.CachedTokens = summary.CacheTokens
+	scaled.PromptTokensDetails.CachedCreationTokens = summary.CacheCreationTokens
+	scaled.ClaudeCacheCreation5mTokens = summary.CacheCreationTokens5m
+	scaled.ClaudeCacheCreation1hTokens = summary.CacheCreationTokens1h
+	return &scaled
 }
 
 func calculateTextToolCallSurcharge(ctx *gin.Context, relayInfo *relaycommon.RelayInfo, summary *textQuotaSummary) decimal.Decimal {
@@ -207,6 +267,8 @@ func calculateTextQuotaSummary(ctx *gin.Context, relayInfo *relaycommon.RelayInf
 		}
 		summary.PromptTokens -= summary.CacheCreationTokens
 	}
+
+	applyTokenCoefficientToTextSummary(&summary, relayInfo.UserSetting.TokenCoefficient)
 
 	dPromptTokens := decimal.NewFromInt(int64(summary.PromptTokens))
 	dCacheTokens := decimal.NewFromInt(int64(summary.CacheTokens))
@@ -338,7 +400,8 @@ func PostTextConsumeQuota(ctx *gin.Context, relayInfo *relaycommon.RelayInfo, us
 		if snap := relayInfo.TieredBillingSnapshot; snap != nil {
 			tieredUsedVars = billingexpr.UsedVars(snap.ExprString)
 		}
-		tieredOk, tieredQuota, tieredRes := TryTieredSettle(relayInfo, BuildTieredTokenParams(usage, summary.IsClaudeUsageSemantic, tieredUsedVars))
+		tieredUsage := buildScaledTieredUsage(usage, summary)
+		tieredOk, tieredQuota, tieredRes := TryTieredSettle(relayInfo, BuildTieredTokenParams(tieredUsage, summary.IsClaudeUsageSemantic, tieredUsedVars))
 		if tieredOk {
 			tieredBillingApplied = true
 			tieredResult = tieredRes
@@ -400,6 +463,23 @@ func PostTextConsumeQuota(ctx *gin.Context, relayInfo *relaycommon.RelayInfo, us
 	}
 	if adminRejectReason != "" {
 		other["reject_reason"] = adminRejectReason
+	}
+	if summary.TokenCoefficient != 0 && summary.TokenCoefficient != 1 {
+		other["token_coefficient"] = summary.TokenCoefficient
+		other["raw_prompt_tokens"] = summary.RawPromptTokens
+		other["raw_completion_tokens"] = summary.RawCompletionTokens
+		if summary.RawCacheTokens > 0 {
+			other["raw_cache_tokens"] = summary.RawCacheTokens
+		}
+		if summary.RawCacheCreationTokens > 0 {
+			other["raw_cache_creation_tokens"] = summary.RawCacheCreationTokens
+		}
+		if summary.RawCacheCreationTokens5m > 0 {
+			other["raw_cache_creation_tokens_5m"] = summary.RawCacheCreationTokens5m
+		}
+		if summary.RawCacheCreationTokens1h > 0 {
+			other["raw_cache_creation_tokens_1h"] = summary.RawCacheCreationTokens1h
+		}
 	}
 	if summary.ImageTokens != 0 {
 		other["image"] = true

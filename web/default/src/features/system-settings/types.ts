@@ -160,6 +160,7 @@ export type ModelSettings = {
   CacheRatio: string
   CreateCacheRatio: string
   CompletionRatio: string
+  CompletionRatioMeta: string
   ImageRatio: string
   AudioRatio: string
   AudioCompletionRatio: string
@@ -203,6 +204,7 @@ export type BillingSettings = {
   CacheRatio: string
   CreateCacheRatio: string
   CompletionRatio: string
+  CompletionRatioMeta: string
   ImageRatio: string
   AudioRatio: string
   AudioCompletionRatio: string

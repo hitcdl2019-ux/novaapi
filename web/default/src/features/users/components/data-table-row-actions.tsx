@@ -31,6 +31,7 @@ import {
   Link2,
   CreditCard,
   Percent,
+  Hash,
 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
@@ -55,6 +56,7 @@ import {
 import { getUserActionMessage } from '../lib'
 import { type User, type ManageUserAction } from '../types'
 import { UserBindingDialog } from './dialogs/user-binding-dialog'
+import { UserTokenCoefficientDialog } from './dialogs/user-token-coefficient-dialog'
 import { UserVendorRatioDialog } from './dialogs/user-vendor-ratio-dialog'
 import { useUsers } from './users-provider'
 
@@ -71,6 +73,8 @@ export function DataTableRowActions({ row }: DataTableRowActionsProps) {
   const [bindingDialogOpen, setBindingDialogOpen] = useState(false)
   const [subscriptionsDialogOpen, setSubscriptionsDialogOpen] = useState(false)
   const [discountDialogOpen, setDiscountDialogOpen] = useState(false)
+  const [tokenCoefficientDialogOpen, setTokenCoefficientDialogOpen] =
+    useState(false)
 
   const handleEdit = () => {
     setCurrentRow(user)
@@ -235,6 +239,18 @@ export function DataTableRowActions({ row }: DataTableRowActionsProps) {
             </DropdownMenuShortcut>
           </DropdownMenuItem>
 
+          <DropdownMenuItem
+            onSelect={(event) => {
+              event.preventDefault()
+              setTokenCoefficientDialogOpen(true)
+            }}
+          >
+            {t('Token Coefficient')}
+            <DropdownMenuShortcut>
+              <Hash size={16} />
+            </DropdownMenuShortcut>
+          </DropdownMenuItem>
+
           <DropdownMenuSeparator />
 
           <DropdownMenuItem
@@ -313,6 +329,13 @@ export function DataTableRowActions({ row }: DataTableRowActionsProps) {
       <UserVendorRatioDialog
         open={discountDialogOpen}
         onOpenChange={setDiscountDialogOpen}
+        userId={user.id}
+        username={user.username}
+      />
+
+      <UserTokenCoefficientDialog
+        open={tokenCoefficientDialogOpen}
+        onOpenChange={setTokenCoefficientDialogOpen}
         userId={user.id}
         username={user.username}
       />

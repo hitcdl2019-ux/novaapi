@@ -522,6 +522,9 @@ func updateOptionMap(key string, value string) (err error) {
 		common.DataExportDefaultTime = value
 	case "ModelRatio":
 		err = ratio_setting.UpdateModelRatioByJSONString(value)
+		if err == nil {
+			InvalidatePricingCache()
+		}
 	case "GroupRatio":
 		err = ratio_setting.UpdateGroupRatioByJSONString(value)
 	case "GroupGroupRatio":
@@ -532,18 +535,39 @@ func updateOptionMap(key string, value string) (err error) {
 		err = setting.UpdateUserUsableGroupsByJSONString(value)
 	case "CompletionRatio":
 		err = ratio_setting.UpdateCompletionRatioByJSONString(value)
+		if err == nil {
+			InvalidatePricingCache()
+		}
 	case "ModelPrice":
 		err = ratio_setting.UpdateModelPriceByJSONString(value)
+		if err == nil {
+			InvalidatePricingCache()
+		}
 	case "CacheRatio":
 		err = ratio_setting.UpdateCacheRatioByJSONString(value)
+		if err == nil {
+			InvalidatePricingCache()
+		}
 	case "CreateCacheRatio":
 		err = ratio_setting.UpdateCreateCacheRatioByJSONString(value)
+		if err == nil {
+			InvalidatePricingCache()
+		}
 	case "ImageRatio":
 		err = ratio_setting.UpdateImageRatioByJSONString(value)
+		if err == nil {
+			InvalidatePricingCache()
+		}
 	case "AudioRatio":
 		err = ratio_setting.UpdateAudioRatioByJSONString(value)
+		if err == nil {
+			InvalidatePricingCache()
+		}
 	case "AudioCompletionRatio":
 		err = ratio_setting.UpdateAudioCompletionRatioByJSONString(value)
+		if err == nil {
+			InvalidatePricingCache()
+		}
 	case "TopUpLink":
 		common.TopUpLink = value
 	//case "ChatLink":
