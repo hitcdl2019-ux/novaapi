@@ -56,7 +56,7 @@ type InvoiceRequest struct {
 	Username           string  `json:"username" gorm:"index;default:''"`
 	RechargeRequestId  int     `json:"recharge_request_id" gorm:"index"`
 	RechargeRequestIds string  `json:"recharge_request_ids" gorm:"type:text;default:''"`
-	RechargeRequestNo  string  `json:"recharge_request_no" gorm:"type:varchar(64);default:''"`
+	RechargeRequestNo  string  `json:"recharge_request_no" gorm:"type:text"`
 	Amount             float64 `json:"amount" gorm:"type:decimal(18,6);default:0"`
 	Status             string  `json:"status" gorm:"type:varchar(32);index;default:'pending'"`
 	InvoiceType        string  `json:"invoice_type" gorm:"type:varchar(32);default:''"`
@@ -80,6 +80,12 @@ type OfflineRechargeSummary struct {
 	BalanceAmount     float64 `json:"balance_amount"`
 	InvoiceableAmount float64 `json:"invoiceable_amount"`
 	PendingCount      int64   `json:"pending_count"`
+}
+
+type UserBillingStat struct {
+	UserId         int     `json:"user_id"`
+	RechargeAmount float64 `json:"recharge_amount"`
+	InvoiceAmount  float64 `json:"invoice_amount"`
 }
 
 func GenerateOfflineRechargeNo() string {
@@ -507,4 +513,64 @@ func GetOfflineRechargeSummary(userId int) (OfflineRechargeSummary, error) {
 		InvoiceableAmount: invoiceable.Amount,
 		PendingCount:      pendingCount + pendingInvoices,
 	}, nil
+}
+
+func GetUserBillingStats(userIds []int, startTime int64, endTime int64) (map[int]UserBillingStat, error) {
+	stats := make(map[int]UserBillingStat, len(userIds))
+	if len(userIds) == 0 {
+		return stats, nil
+	}
+	for _, userId := range userIds {
+		if userId > 0 {
+			stats[userId] = UserBillingStat{UserId: userId}
+		}
+	}
+	if len(stats) == 0 {
+		return stats, nil
+	}
+
+	type amountRow struct {
+		UserId int     `gorm:"column:user_id"`
+		Amount float64 `gorm:"column:amount"`
+	}
+
+	var rechargeRows []amountRow
+	rechargeQuery := DB.Model(&OfflineRechargeRequest{}).
+		Select("user_id, SUM(amount) as amount").
+		Where("user_id in ? and status = ?", userIds, OfflineRechargeStatusCompleted)
+	if startTime > 0 {
+		rechargeQuery = rechargeQuery.Where("completed_at >= ?", startTime)
+	}
+	if endTime > 0 {
+		rechargeQuery = rechargeQuery.Where("completed_at <= ?", endTime)
+	}
+	if err := rechargeQuery.Group("user_id").Scan(&rechargeRows).Error; err != nil {
+		return nil, err
+	}
+	for _, row := range rechargeRows {
+		stat := stats[row.UserId]
+		stat.RechargeAmount = row.Amount
+		stats[row.UserId] = stat
+	}
+
+	var invoiceRows []amountRow
+	invoiceQuery := DB.Model(&InvoiceRequest{}).
+		Select("user_id, SUM(amount) as amount").
+		Where("user_id in ? and status = ?", userIds, InvoiceStatusIssued)
+	if startTime > 0 {
+		invoiceQuery = invoiceQuery.Where("reviewed_at >= ?", startTime)
+	}
+	if endTime > 0 {
+		invoiceQuery = invoiceQuery.Where("reviewed_at <= ?", endTime)
+	}
+	if err := invoiceQuery.Group("user_id").Scan(&invoiceRows).Error; err != nil {
+		return nil, err
+	}
+	for _, row := range invoiceRows {
+		stat := stats[row.UserId]
+		stat.InvoiceAmount = row.Amount
+		stats[row.UserId] = stat
+	}
+
+	return stats, nil
 }

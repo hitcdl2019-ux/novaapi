@@ -97,6 +97,18 @@ export interface SearchUsersParams {
   page_size?: number
 }
 
+export interface UserBillingStat {
+  user_id: number
+  recharge_amount: number
+  invoice_amount: number
+}
+
+export interface GetUserBillingStatsParams {
+  user_ids: number[]
+  start_time?: number
+  end_time?: number
+}
+
 export interface UserFormData {
   username: string
   display_name: string

@@ -31,6 +31,7 @@ func SetApiRouter(router *gin.Engine) {
 		//apiRouter.GET("/midjourney", controller.GetMidjourney)
 		apiRouter.GET("/home_page_content", middleware.DisableCache(), controller.GetHomePageContent)
 		apiRouter.GET("/pricing", middleware.HeaderNavModuleAuth("pricing"), controller.GetPricing)
+		apiRouter.GET("/operations-dashboard", middleware.AdminAuth(), controller.GetOperationsDashboard)
 		offlineRechargeRoute := apiRouter.Group("/offline-recharge")
 		offlineRechargeRoute.Use(middleware.UserAuth())
 		{
@@ -64,6 +65,11 @@ func SetApiRouter(router *gin.Engine) {
 			adminInvoiceRoute.POST("/:id/issue", controller.AdminIssueInvoiceRequest)
 			adminInvoiceRoute.POST("/:id/reject", controller.AdminRejectInvoiceRequest)
 			adminInvoiceRoute.GET("/:id/file", controller.AdminGetInvoiceFile)
+		}
+		adminOperationsRoute := apiRouter.Group("/admin/operations")
+		adminOperationsRoute.Use(middleware.AdminAuth())
+		{
+			adminOperationsRoute.GET("/dashboard", controller.GetOperationsDashboard)
 		}
 		perfMetricsRoute := apiRouter.Group("/perf-metrics")
 		perfMetricsRoute.Use(middleware.HeaderNavModulePublicOrUserAuth("pricing"))
@@ -164,6 +170,7 @@ func SetApiRouter(router *gin.Engine) {
 				adminRoute.GET("/topup", controller.GetAllTopUps)
 				adminRoute.POST("/topup/complete", controller.AdminCompleteTopUp)
 				adminRoute.GET("/search", controller.SearchUsers)
+				adminRoute.GET("/billing-stats", controller.GetUserBillingStats)
 				adminRoute.GET("/:id/oauth/bindings", controller.GetUserOAuthBindingsByAdmin)
 				adminRoute.DELETE("/:id/oauth/bindings/:provider_id", controller.UnbindCustomOAuthByAdmin)
 				adminRoute.DELETE("/:id/bindings/:binding_type", controller.AdminClearUserBinding)

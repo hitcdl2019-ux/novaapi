@@ -32,8 +32,12 @@ import { GroupBadge } from '@/components/group-badge'
 import { LongText } from '@/components/long-text'
 import { StatusBadge, dotColorMap } from '@/components/status-badge'
 import { USER_STATUSES, USER_ROLES, isUserDeleted } from '../constants'
-import { type User } from '../types'
+import { type User, type UserBillingStat } from '../types'
 import { DataTableRowActions } from './data-table-row-actions'
+
+function formatAmount(value: number | undefined) {
+  return `¥${(value || 0).toFixed(2)}`
+}
 
 function getQuotaProgressColor(percentage: number): string {
   if (percentage <= 10) return '[&_[data-slot=progress-indicator]]:bg-rose-500'
@@ -41,7 +45,9 @@ function getQuotaProgressColor(percentage: number): string {
   return '[&_[data-slot=progress-indicator]]:bg-emerald-500'
 }
 
-export function useUsersColumns(): ColumnDef<User>[] {
+export function useUsersColumns(
+  billingStats: Record<string, UserBillingStat> = {}
+): ColumnDef<User>[] {
   const { t } = useTranslation()
   return [
     {
@@ -235,6 +241,44 @@ export function useUsersColumns(): ColumnDef<User>[] {
         )
       },
       meta: { label: t('Quota') },
+    },
+    {
+      id: 'recharge_amount',
+      header: ({ column }) => (
+        <DataTableColumnHeader
+          column={column}
+          title={t('Cumulative Recharge Amount')}
+        />
+      ),
+      cell: ({ row }) => {
+        const stat = billingStats[String(row.original.id)]
+        return (
+          <span className='font-mono text-sm tabular-nums'>
+            {formatAmount(stat?.recharge_amount)}
+          </span>
+        )
+      },
+      enableSorting: false,
+      meta: { label: t('Cumulative Recharge Amount'), mobileHidden: true },
+    },
+    {
+      id: 'invoice_amount',
+      header: ({ column }) => (
+        <DataTableColumnHeader
+          column={column}
+          title={t('Cumulative Invoice Amount')}
+        />
+      ),
+      cell: ({ row }) => {
+        const stat = billingStats[String(row.original.id)]
+        return (
+          <span className='font-mono text-sm tabular-nums'>
+            {formatAmount(stat?.invoice_amount)}
+          </span>
+        )
+      },
+      enableSorting: false,
+      meta: { label: t('Cumulative Invoice Amount'), mobileHidden: true },
     },
     {
       accessorKey: 'group',

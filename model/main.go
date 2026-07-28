@@ -293,6 +293,9 @@ func migrateDB() error {
 	if err != nil {
 		return err
 	}
+	if err := migrateInvoiceRechargeRequestNoToText(); err != nil {
+		return err
+	}
 	if common.UsingSQLite {
 		if err := ensureOfflineRechargeTablesSQLite(); err != nil {
 			return err
@@ -352,7 +355,7 @@ user_id integer,
 username text DEFAULT "",
 recharge_request_id integer,
 recharge_request_ids text DEFAULT "",
-recharge_request_no varchar(64) DEFAULT "",
+recharge_request_no text DEFAULT "",
 amount real DEFAULT 0,
 status varchar(32) DEFAULT "pending",
 invoice_type varchar(32) DEFAULT "",
@@ -487,6 +490,9 @@ func migrateDBFast() error {
 			return err
 		}
 	}
+	if err := migrateInvoiceRechargeRequestNoToText(); err != nil {
+		return err
+	}
 	common.SysLog("database migrated")
 	return nil
 }
@@ -615,6 +621,63 @@ func migrateTokenModelLimitsToText() error {
 			common.SysLog(fmt.Sprintf("Warning: failed to query metadata for %s.%s: %v", tableName, columnName, err))
 		} else if strings.ToLower(columnType) == "text" {
 			return nil
+		}
+		alterSQL = fmt.Sprintf("ALTER TABLE %s MODIFY COLUMN %s text", tableName, columnName)
+	} else {
+		return nil
+	}
+
+	if alterSQL != "" {
+		if err := DB.Exec(alterSQL).Error; err != nil {
+			return fmt.Errorf("failed to migrate %s.%s to text: %w", tableName, columnName, err)
+		}
+		common.SysLog(fmt.Sprintf("Successfully migrated %s.%s to text", tableName, columnName))
+	}
+	return nil
+}
+
+// migrateInvoiceRechargeRequestNoToText migrates invoice recharge request
+// numbers from varchar(64) to text. Combined invoices store multiple request
+// numbers joined by comma, which can exceed MySQL's strict varchar limit.
+func migrateInvoiceRechargeRequestNoToText() error {
+	// SQLite does not enforce varchar length and cannot alter column types
+	// directly, so the explicit migration is only needed for strict databases.
+	if common.UsingSQLite {
+		return nil
+	}
+
+	tableName := "invoice_requests"
+	columnName := "recharge_request_no"
+
+	if !DB.Migrator().HasTable(tableName) {
+		return nil
+	}
+	if !DB.Migrator().HasColumn(&InvoiceRequest{}, columnName) {
+		return nil
+	}
+
+	var alterSQL string
+	if common.UsingPostgreSQL {
+		var dataType string
+		if err := DB.Raw(`SELECT data_type FROM information_schema.columns
+			WHERE table_schema = current_schema() AND table_name = ? AND column_name = ?`,
+			tableName, columnName).Scan(&dataType).Error; err != nil {
+			common.SysLog(fmt.Sprintf("Warning: failed to query metadata for %s.%s: %v", tableName, columnName, err))
+		} else if dataType == "text" {
+			return nil
+		}
+		alterSQL = fmt.Sprintf(`ALTER TABLE %s ALTER COLUMN %s TYPE text`, tableName, columnName)
+	} else if common.UsingMySQL {
+		var columnType string
+		if err := DB.Raw(`SELECT COLUMN_TYPE FROM information_schema.columns
+				WHERE table_schema = DATABASE() AND table_name = ? AND column_name = ?`,
+			tableName, columnName).Scan(&columnType).Error; err != nil {
+			common.SysLog(fmt.Sprintf("Warning: failed to query metadata for %s.%s: %v", tableName, columnName, err))
+		} else {
+			switch strings.ToLower(columnType) {
+			case "text", "mediumtext", "longtext":
+				return nil
+			}
 		}
 		alterSQL = fmt.Sprintf("ALTER TABLE %s MODIFY COLUMN %s text", tableName, columnName)
 	} else {

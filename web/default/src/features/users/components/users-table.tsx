@@ -34,12 +34,13 @@ import { useMediaQuery } from '@/hooks'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import { useTableUrlState } from '@/hooks/use-table-url-state'
+import { Input } from '@/components/ui/input'
 import {
   DISABLED_ROW_DESKTOP,
   DISABLED_ROW_MOBILE,
   DataTablePage,
 } from '@/components/data-table'
-import { getUsers, searchUsers } from '../api'
+import { getUserBillingStats, getUsers, searchUsers } from '../api'
 import {
   USER_STATUS,
   getUserStatusOptions,
@@ -59,12 +60,13 @@ function isDisabledUserRow(user: User) {
 
 export function UsersTable() {
   const { t } = useTranslation()
-  const columns = useUsersColumns()
   const { refreshTrigger } = useUsers()
   const isMobile = useMediaQuery('(max-width: 640px)')
   const [rowSelection, setRowSelection] = useState({})
   const [sorting, setSorting] = useState<SortingState>([])
   const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({})
+  const [statsStartDate, setStatsStartDate] = useState('')
+  const [statsEndDate, setStatsEndDate] = useState('')
 
   const {
     globalFilter,
@@ -122,6 +124,29 @@ export function UsersTable() {
   })
 
   const users = data?.items || []
+  const userIds = users.map((user) => user.id)
+  const statsStartTime = dateToStartTimestamp(statsStartDate)
+  const statsEndTime = dateToEndTimestamp(statsEndDate)
+  const hasStatsDateFilter = Boolean(statsStartDate || statsEndDate)
+  const { data: billingStatsData } = useQuery({
+    queryKey: [
+      'users',
+      'billing-stats',
+      userIds.join(','),
+      statsStartTime,
+      statsEndTime,
+      refreshTrigger,
+    ],
+    queryFn: () =>
+      getUserBillingStats({
+        user_ids: userIds,
+        start_time: statsStartTime,
+        end_time: statsEndTime,
+      }),
+    enabled: userIds.length > 0,
+  })
+  const billingStats = billingStatsData?.data || {}
+  const columns = useUsersColumns(billingStats)
 
   const table = useReactTable({
     data: users,
@@ -182,6 +207,29 @@ export function UsersTable() {
       skeletonKeyPrefix='users-skeleton'
       toolbarProps={{
         searchPlaceholder: t('Filter by username, name or email...'),
+        additionalSearch: (
+          <div className='flex flex-wrap gap-2'>
+            <Input
+              type='date'
+              value={statsStartDate}
+              onChange={(event) => setStatsStartDate(event.target.value)}
+              aria-label={t('Stats start date')}
+              className='w-full sm:w-[150px]'
+            />
+            <Input
+              type='date'
+              value={statsEndDate}
+              onChange={(event) => setStatsEndDate(event.target.value)}
+              aria-label={t('Stats end date')}
+              className='w-full sm:w-[150px]'
+            />
+          </div>
+        ),
+        hasAdditionalFilters: hasStatsDateFilter,
+        onReset: () => {
+          setStatsStartDate('')
+          setStatsEndDate('')
+        },
         filters: [
           {
             columnId: 'status',
@@ -207,4 +255,14 @@ export function UsersTable() {
       bulkActions={<DataTableBulkActions table={table} />}
     />
   )
+}
+
+function dateToStartTimestamp(date: string) {
+  if (!date) return 0
+  return Math.floor(new Date(`${date}T00:00:00`).getTime() / 1000)
+}
+
+function dateToEndTimestamp(date: string) {
+  if (!date) return 0
+  return Math.floor(new Date(`${date}T23:59:59`).getTime() / 1000)
 }

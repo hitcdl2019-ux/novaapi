@@ -265,6 +265,37 @@ func SearchUsers(c *gin.Context) {
 	return
 }
 
+func GetUserBillingStats(c *gin.Context) {
+	userIds := parseUserIds(c.Query("user_ids"))
+	if len(userIds) == 0 {
+		common.ApiSuccess(c, map[int]model.UserBillingStat{})
+		return
+	}
+	startTime, _ := strconv.ParseInt(c.Query("start_time"), 10, 64)
+	endTime, _ := strconv.ParseInt(c.Query("end_time"), 10, 64)
+	stats, err := model.GetUserBillingStats(userIds, startTime, endTime)
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	common.ApiSuccess(c, stats)
+}
+
+func parseUserIds(raw string) []int {
+	parts := strings.Split(raw, ",")
+	result := make([]int, 0, len(parts))
+	seen := map[int]bool{}
+	for _, part := range parts {
+		id, err := strconv.Atoi(strings.TrimSpace(part))
+		if err != nil || id <= 0 || seen[id] {
+			continue
+		}
+		seen[id] = true
+		result = append(result, id)
+	}
+	return result
+}
+
 func canManageTargetRole(myRole int, targetRole int) bool {
 	return myRole == common.RoleRootUser || myRole > targetRole
 }

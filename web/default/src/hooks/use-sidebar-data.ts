@@ -18,6 +18,7 @@ For commercial licensing, please contact support@quantumnous.com
 */
 import {
   LayoutDashboard,
+  BarChart3,
   Key,
   FileText,
   Wallet,
@@ -144,6 +145,11 @@ export function useSidebarData(): SidebarData {
             title: t('Users'),
             url: '/users',
             icon: Users,
+          },
+          {
+            title: t('Operations Dashboard'),
+            url: '/operations-dashboard',
+            icon: BarChart3,
           },
           {
             title: t('Redemption Codes'),

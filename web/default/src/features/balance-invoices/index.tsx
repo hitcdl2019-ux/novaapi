@@ -16,7 +16,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { FileText, Upload } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
@@ -99,6 +99,8 @@ import type {
 
 const amountPresets = [300, 500, 1000]
 const rechargePageSizeOptions = [10, 20, 30, 40, 50]
+const emptyRechargeRequests: OfflineRechargeRequest[] = []
+const emptyInvoiceRequests: InvoiceRequest[] = []
 
 function extractQueryError(query: {
   error: unknown
@@ -321,15 +323,12 @@ function RechargeForm() {
   const [amount, setAmount] = useState('500')
   const [submittedRequest, setSubmittedRequest] =
     useState<OfflineRechargeRequest | null>(null)
-  const [supportQrCodeLoadFailed, setSupportQrCodeLoadFailed] = useState(false)
+  const [failedSupportQrCodeUrl, setFailedSupportQrCodeUrl] = useState('')
   const supportQrCodeUrl = (
     (status?.offline_recharge_support_qrcode as string | undefined) || ''
   ).trim()
-  const showSupportQrCode = supportQrCodeUrl && !supportQrCodeLoadFailed
-
-  useEffect(() => {
-    setSupportQrCodeLoadFailed(false)
-  }, [supportQrCodeUrl])
+  const showSupportQrCode =
+    supportQrCodeUrl && failedSupportQrCodeUrl !== supportQrCodeUrl
 
   const mutation = useMutation({
     mutationFn: createOfflineRechargeRequest,
@@ -466,7 +465,7 @@ function RechargeForm() {
                 src={supportQrCodeUrl}
                 alt={t('Support QR code')}
                 className='h-56 w-56 rounded-lg border object-contain p-2'
-                onError={() => setSupportQrCodeLoadFailed(true)}
+                onError={() => setFailedSupportQrCodeUrl(supportQrCodeUrl)}
               />
             ) : (
               <div className='text-muted-foreground flex h-56 w-56 items-center justify-center rounded-lg border p-4 text-center text-sm'>
@@ -825,9 +824,13 @@ function InvoiceableRechargeTable(props: {
   >([])
   const invoiceByRecharge = useMemo(() => {
     const map = new Map<number, InvoiceRequest>()
-    props.invoices.forEach((invoice) => {
-      parseInvoiceRechargeIds(invoice).forEach((id) => map.set(id, invoice))
-    })
+    props.invoices
+      .filter(
+        (invoice) => invoice.status === 'pending' || invoice.status === 'issued'
+      )
+      .forEach((invoice) => {
+        parseInvoiceRechargeIds(invoice).forEach((id) => map.set(id, invoice))
+      })
     return map
   }, [props.invoices])
   const invoiceableRecharges = props.recharges.filter(
@@ -1429,8 +1432,8 @@ export function AdminBalanceInvoices() {
   })
   const rechargesError = extractQueryError(rechargesQuery)
   const invoicesError = extractQueryError(invoicesQuery)
-  const recharges = rechargesQuery.data?.data?.items ?? []
-  const invoices = invoicesQuery.data?.data?.items ?? []
+  const recharges = rechargesQuery.data?.data?.items ?? emptyRechargeRequests
+  const invoices = invoicesQuery.data?.data?.items ?? emptyInvoiceRequests
   const filteredRecharges = useMemo(() => {
     const keyword = rechargeKeyword.trim().toLowerCase()
     return recharges.filter((item) => {
@@ -1458,16 +1461,6 @@ export function AdminBalanceInvoices() {
     return filteredRecharges.slice(start, start + rechargePageSize)
   }, [currentRechargePage, filteredRecharges, rechargePageSize])
 
-  useEffect(() => {
-    setRechargePage(1)
-  }, [rechargeKeyword, rechargeStatusFilter, rechargePageSize])
-
-  useEffect(() => {
-    if (rechargePage > rechargeTotalPages) {
-      setRechargePage(rechargeTotalPages)
-    }
-  }, [rechargePage, rechargeTotalPages])
-
   return (
     <SectionPageLayout>
       <SectionPageLayout.Title>
@@ -1489,16 +1482,20 @@ export function AdminBalanceInvoices() {
                 <Input
                   placeholder={t('Search request no., username or user ID')}
                   value={rechargeKeyword}
-                  onChange={(e) => setRechargeKeyword(e.target.value)}
+                  onChange={(e) => {
+                    setRechargeKeyword(e.target.value)
+                    setRechargePage(1)
+                  }}
                 />
                 <NativeSelect
                   className='w-full'
                   value={rechargeStatusFilter}
-                  onChange={(e) =>
+                  onChange={(e) => {
                     setRechargeStatusFilter(
                       e.target.value as '' | OfflineRechargeStatus
                     )
-                  }
+                    setRechargePage(1)
+                  }}
                 >
                   <option value=''>{t('All statuses')}</option>
                   {(
@@ -1520,6 +1517,7 @@ export function AdminBalanceInvoices() {
                   onClick={() => {
                     setRechargeKeyword('')
                     setRechargeStatusFilter('')
+                    setRechargePage(1)
                   }}
                   disabled={!hasRechargeFilters}
                 >
@@ -1612,9 +1610,10 @@ export function AdminBalanceInvoices() {
                   <div className='flex items-center gap-2'>
                     <NativeSelect
                       value={String(rechargePageSize)}
-                      onChange={(e) =>
+                      onChange={(e) => {
                         setRechargePageSize(Number(e.target.value))
-                      }
+                        setRechargePage(1)
+                      }}
                     >
                       {rechargePageSizeOptions.map((pageSize) => (
                         <option key={pageSize} value={pageSize}>
@@ -1638,7 +1637,7 @@ export function AdminBalanceInvoices() {
                         variant='outline'
                         size='sm'
                         onClick={() =>
-                          setRechargePage((page) => Math.max(1, page - 1))
+                          setRechargePage(Math.max(1, currentRechargePage - 1))
                         }
                         disabled={currentRechargePage <= 1}
                       >
@@ -1648,8 +1647,11 @@ export function AdminBalanceInvoices() {
                         variant='outline'
                         size='sm'
                         onClick={() =>
-                          setRechargePage((page) =>
-                            Math.min(rechargeTotalPages, page + 1)
+                          setRechargePage(
+                            Math.min(
+                              rechargeTotalPages,
+                              currentRechargePage + 1
+                            )
                           )
                         }
                         disabled={currentRechargePage >= rechargeTotalPages}

@@ -23,6 +23,8 @@ import type {
   GetUsersResponse,
   SearchUsersParams,
   UserFormData,
+  GetUserBillingStatsParams,
+  UserBillingStat,
   ManageUserAction,
   ManageUserQuotaPayload,
   ApiResponse,
@@ -61,6 +63,20 @@ export async function searchUsers(
  */
 export async function getUser(id: number): Promise<ApiResponse<User>> {
   const res = await api.get(`/api/user/${id}`)
+  return res.data
+}
+
+/**
+ * Get billing stats for users on the current admin users page.
+ */
+export async function getUserBillingStats(
+  params: GetUserBillingStatsParams
+): Promise<ApiResponse<Record<string, UserBillingStat>>> {
+  const search = new URLSearchParams()
+  search.set('user_ids', params.user_ids.join(','))
+  if (params.start_time) search.set('start_time', String(params.start_time))
+  if (params.end_time) search.set('end_time', String(params.end_time))
+  const res = await api.get(`/api/user/billing-stats?${search.toString()}`)
   return res.data
 }
 
