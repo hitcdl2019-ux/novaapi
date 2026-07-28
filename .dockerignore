@@ -13,3 +13,10 @@ docs
 /web/classic/node_modules
 /web/classic/dist
 !THIRD-PARTY-LICENSES.md
+mysql_data/
+data/
+data_backup/
+logs/
+db_backup/
+*.db
+.env

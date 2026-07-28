@@ -30,9 +30,9 @@ services:
     environment:
       MYSQL_ROOT_PASSWORD: NovaApi_666888
       MYSQL_DATABASE: new_api
-    ports:
+    #ports:
       # ⚠️ 仅在迁移期间临时开启本地端口映射
-      - "127.0.0.1:3306:3306"
+      #- "127.0.0.1:3306:3306"
     volumes:
       - ./mysql_data:/var/lib/mysql
     networks:
