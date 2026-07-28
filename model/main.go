@@ -389,7 +389,7 @@ PRIMARY KEY (id)
 		}
 	}
 	if !DB.Migrator().HasColumn(&InvoiceRequest{}, "recharge_request_ids") {
-		if err := DB.Exec("ALTER TABLE `invoice_requests` ADD COLUMN `recharge_request_ids` text DEFAULT ''").Error; err != nil {
+		if err := DB.Exec("ALTER TABLE `invoice_requests` ADD COLUMN `recharge_request_ids` text").Error; err != nil {
 			return err
 		}
 	}

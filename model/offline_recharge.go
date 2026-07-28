@@ -55,7 +55,7 @@ type InvoiceRequest struct {
 	UserId             int     `json:"user_id" gorm:"index"`
 	Username           string  `json:"username" gorm:"index;default:''"`
 	RechargeRequestId  int     `json:"recharge_request_id" gorm:"index"`
-	RechargeRequestIds string  `json:"recharge_request_ids" gorm:"type:text;default:''"`
+	RechargeRequestIds string  `json:"recharge_request_ids" gorm:"type:text"`
 	RechargeRequestNo  string  `json:"recharge_request_no" gorm:"type:text"`
 	Amount             float64 `json:"amount" gorm:"type:decimal(18,6);default:0"`
 	Status             string  `json:"status" gorm:"type:varchar(32);index;default:'pending'"`
