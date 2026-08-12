@@ -382,6 +382,7 @@ function TokensPage() {
         editingToken={editingToken}
         visiable={showEdit}
         handleClose={closeEdit}
+        cacheResolvedTokenKeys={tokensData.cacheResolvedTokenKeys}
       />
 
       <CCSwitchModal

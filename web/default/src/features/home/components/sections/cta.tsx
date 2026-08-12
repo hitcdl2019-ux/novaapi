@@ -38,15 +38,15 @@ export function CTA(props: CTAProps) {
   const docsUrl = props.docsLink || 'https://docs.newapi.pro'
 
   return (
-    <section className='relative z-10 overflow-hidden bg-slate-900 px-6 py-20 md:py-28'>
-      {/* Central deep glow — universe-like depth */}
+    <section className='relative z-10 overflow-hidden bg-slate-950 px-6 py-20 md:py-28'>
+      {/* Central deep glow */}
       <div
         aria-hidden
         className='pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2'
         style={{
           width: '500px',
           height: '500px',
-          background: 'radial-gradient(circle, oklch(0.55 0.22 280 / 30%) 0%, oklch(0.45 0.18 260 / 15%) 40%, transparent 70%)',
+          background: 'radial-gradient(circle, oklch(0.58 0.18 245 / 24%) 0%, oklch(0.50 0.14 230 / 12%) 40%, transparent 70%)',
           filter: 'blur(80px)',
           borderRadius: '50%',
         }}
@@ -81,12 +81,12 @@ export function CTA(props: CTAProps) {
         </h2>
         <p className='mx-auto mt-6 max-w-lg text-base leading-relaxed text-slate-300 md:text-lg'>
           {t(
-            'Sign up now to get your API key and instantly access 50+ flagship models — no complex setup, no platform lock-in.'
+            'Sign up now to get your API key and instantly access 50+ flagship models, no complex setup, no platform lock-in.'
           )}
         </p>
         <div className='mt-10 flex items-center justify-center gap-4'>
           <Button
-            className='group rounded-lg bg-indigo-500 text-white hover:bg-indigo-400 shadow-[0_0_20px_rgba(99,102,241,0.3)]'
+            className='group rounded-lg bg-white text-slate-950 hover:bg-sky-50 shadow-[0_16px_40px_rgba(15,23,42,0.25)]'
             render={<Link to='/sign-up' />}
           >
             {t('Get API Key')}
@@ -95,7 +95,7 @@ export function CTA(props: CTAProps) {
           <Button
             variant='outline'
             className='rounded-lg border-white/20 bg-transparent text-white hover:border-white/50 hover:bg-white/5'
-            onClick={() => window.open(docsUrl, '_blank')}
+            render={<a href={docsUrl} target='_blank' rel='noreferrer' />}
           >
             {t('View Docs')}
           </Button>

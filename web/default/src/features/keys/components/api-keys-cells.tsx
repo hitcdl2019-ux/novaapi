@@ -38,7 +38,8 @@ import { useApiKeys } from './api-keys-provider'
 export function ApiKeyCell({ apiKey }: { apiKey: ApiKey }) {
   const { t } = useTranslation()
   const {
-    resolveRealKey,
+    resolveRealKeysBatch,
+    visibleKeyIds,
     resolvedKeys,
     loadingKeys,
     copiedKeyId,
@@ -50,24 +51,29 @@ export function ApiKeyCell({ apiKey }: { apiKey: ApiKey }) {
   const resolvedFullKey = resolvedKeys[apiKey.id]
   const isCopied = copiedKeyId === apiKey.id
   const maskedKey = `sk-${apiKey.key}`
+  const resolveCurrentPageKeys = useCallback(async () => {
+    const ids = visibleKeyIds.length > 0 ? visibleKeyIds : [apiKey.id]
+    const keys = await resolveRealKeysBatch(ids)
+    return keys[apiKey.id] || null
+  }, [visibleKeyIds, apiKey.id, resolveRealKeysBatch])
 
   const handlePopoverOpen = useCallback(
     (open: boolean) => {
       setPopoverOpen(open)
       if (open && !resolvedFullKey) {
-        resolveRealKey(apiKey.id)
+        resolveCurrentPageKeys()
       }
     },
-    [resolvedFullKey, resolveRealKey, apiKey.id]
+    [resolvedFullKey, resolveCurrentPageKeys]
   )
 
   const handleCopy = useCallback(async () => {
-    const realKey = resolvedFullKey || (await resolveRealKey(apiKey.id))
+    const realKey = resolvedFullKey || (await resolveCurrentPageKeys())
     if (realKey) {
       const ok = await copyToClipboard(realKey)
       if (ok) markKeyCopied(apiKey.id)
     }
-  }, [resolvedFullKey, resolveRealKey, apiKey.id, markKeyCopied])
+  }, [resolvedFullKey, resolveCurrentPageKeys, apiKey.id, markKeyCopied])
 
   return (
     <div className='flex items-center'>

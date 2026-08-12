@@ -16,7 +16,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import type { z } from 'zod'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -68,6 +68,7 @@ export function UserAuthForm({
 }: AuthFormProps) {
   const { t } = useTranslation()
   const [isLoading, setIsLoading] = useState(false)
+  const loginSubmittingRef = useRef(false)
   const [wechatCode, setWeChatCode] = useState('')
   const [agreedToLegal, setAgreedToLegal] = useState(false)
   const [consentError, setConsentError] = useState(false)
@@ -145,10 +146,12 @@ export function UserAuthForm({
   }, [status])
 
   async function onSubmit(data: z.infer<typeof loginFormSchema>) {
+    if (loginSubmittingRef.current) return
     if (!guardLegalConsent()) return
 
     if (!validateTurnstile()) return
 
+    loginSubmittingRef.current = true
     setIsLoading(true)
     try {
       const res = await login({
@@ -169,6 +172,7 @@ export function UserAuthForm({
     } catch (_error) {
       // Errors are handled by global interceptor
     } finally {
+      loginSubmittingRef.current = false
       setIsLoading(false)
     }
   }

@@ -69,25 +69,29 @@ export function HeroTerminalDemo() {
   const [copied, setCopied] = useState(false)
 
   const handleCopy = async () => {
-    await navigator.clipboard.writeText(SNIPPETS[activeTab])
-    setCopied(true)
-    setTimeout(() => setCopied(false), 2000)
+    try {
+      await navigator.clipboard.writeText(SNIPPETS[activeTab])
+      setCopied(true)
+      window.setTimeout(() => setCopied(false), 2000)
+    } catch {
+      setCopied(false)
+    }
   }
 
   return (
     <div className='mx-auto mt-16 w-full max-w-5xl text-left'>
       <div className='relative'>
-        {/* Ambient glow — subtle, confined */}
+        {/* Ambient glow, subtle and confined */}
         <div
           aria-hidden
-          className='pointer-events-none absolute -inset-0.5 rounded-2xl opacity-15 blur-xl'
+          className='pointer-events-none absolute -inset-0.5 rounded-2xl opacity-10 blur-xl'
           style={{
-            background: 'linear-gradient(to right, #6366f1, #8b5cf6, #a855f7)',
+            background: 'linear-gradient(to right, #0ea5e9, #6366f1, #8b5cf6)',
           }}
         />
 
         {/* Terminal frame */}
-        <div className='relative overflow-hidden rounded-xl border border-white/10 bg-[#0d1117] shadow-2xl'>
+        <div className='relative overflow-hidden rounded-2xl border border-white/10 bg-[#0d1117] shadow-2xl shadow-slate-950/20'>
           {/* Header bar */}
           <div className='flex items-center justify-between border-b border-white/[0.06] px-5 py-2'>
             <div className='flex items-center gap-2'>

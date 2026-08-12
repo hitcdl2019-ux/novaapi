@@ -93,7 +93,8 @@ export const useTokensData = (openFluentNotification, openCCSwitchModal) => {
 
   // Sync page data from API response
   const syncPageData = (payload) => {
-    setTokens(payload.items || []);
+    const pageTokens = payload.items || [];
+    setTokens(pageTokens);
     setTokenCount(payload.total || 0);
     setActivePage(payload.page || 1);
     setPageSize(payload.page_size || pageSize);
@@ -155,10 +156,23 @@ export const useTokensData = (openFluentNotification, openCCSwitchModal) => {
     }
 
     const request = (async () => {
-      setLoadingTokenKeys((prev) => ({ ...prev, [tokenId]: true }));
+      const pageIds =
+        typeof tokenOrId === 'object'
+          ? tokens.map((token) => token.id).filter(Boolean)
+          : [tokenId];
+      const ids = pageIds.length > 0 ? pageIds : [tokenId];
+
+      for (const id of ids) {
+        setLoadingTokenKeys((prev) => ({ ...prev, [id]: true }));
+      }
+
       try {
-        const fullKey = await fetchTokenKeyById(tokenId);
-        setResolvedTokenKeys((prev) => ({ ...prev, [tokenId]: fullKey }));
+        const keysMap =
+          ids.length > 1
+            ? await fetchTokenKeysBatch(ids)
+            : { [tokenId]: await fetchTokenKeyById(tokenId) };
+        setResolvedTokenKeys((prev) => ({ ...prev, ...keysMap }));
+        const fullKey = keysMap[tokenId];
         return fullKey;
       } catch (error) {
         const normalizedError = new Error(
@@ -170,16 +184,24 @@ export const useTokensData = (openFluentNotification, openCCSwitchModal) => {
         throw normalizedError;
       } finally {
         delete keyRequestsRef.current[tokenId];
-        setLoadingTokenKeys((prev) => {
-          const next = { ...prev };
-          delete next[tokenId];
-          return next;
-        });
+        for (const id of ids) {
+          setLoadingTokenKeys((prev) => {
+            const next = { ...prev };
+            delete next[id];
+            return next;
+          });
+        }
       }
     })();
 
     keyRequestsRef.current[tokenId] = request;
     return request;
+  };
+
+  const cacheResolvedTokenKeys = (keysMap = {}) => {
+    if (Object.keys(keysMap).length > 0) {
+      setResolvedTokenKeys((prev) => ({ ...prev, ...keysMap }));
+    }
   };
 
   const toggleTokenVisibility = async (record) => {
@@ -501,6 +523,7 @@ export const useTokensData = (openFluentNotification, openCCSwitchModal) => {
     refresh,
     copyText,
     fetchTokenKey,
+    cacheResolvedTokenKeys,
     toggleTokenVisibility,
     copyTokenKey,
     copyTokenConnectionString,

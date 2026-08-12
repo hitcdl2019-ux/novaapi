@@ -30,14 +30,20 @@ export function getApiKeyFormSchema(t: TFunction) {
   return z
     .object({
       name: z.string().min(1, t('Please enter a name')),
-      remain_quota_dollars: z.number().optional(),
+      remain_quota_dollars: z.preprocess((value) => {
+        if (value === '' || value == null) return undefined
+        return typeof value === 'string' ? Number(value) : value
+      }, z.number().optional()),
       expired_time: z.date().optional(),
       unlimited_quota: z.boolean(),
       model_limits: z.array(z.string()),
       allow_ips: z.string().optional(),
       group: z.string().optional(),
       cross_group_retry: z.boolean().optional(),
-      tokenCount: z.number().min(1).optional(),
+      tokenCount: z.preprocess((value) => {
+        if (value === '' || value == null) return undefined
+        return typeof value === 'string' ? Number(value) : value
+      }, z.number().min(1).optional()),
     })
     .superRefine((data, ctx) => {
       if (data.unlimited_quota) {

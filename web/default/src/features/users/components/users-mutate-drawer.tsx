@@ -23,6 +23,7 @@ import { useQuery } from '@tanstack/react-query'
 import { Pencil } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
+import { useCopyToClipboard } from '@/hooks/use-copy-to-clipboard'
 import { getCurrencyDisplay, getCurrencyLabel } from '@/lib/currency'
 import { formatQuota, parseQuotaFromDollars } from '@/lib/format'
 import { Button } from '@/components/ui/button'
@@ -68,6 +69,43 @@ import { type User } from '../types'
 import { UserQuotaDialog } from './user-quota-dialog'
 import { useUsers } from './users-provider'
 
+const PASSWORD_CHARSETS = [
+  'ABCDEFGHJKLMNPQRSTUVWXYZ',
+  'abcdefghijkmnopqrstuvwxyz',
+  '23456789',
+  '!@#$%^&*',
+]
+const PASSWORD_LENGTH = 12
+
+function getRandomIndex(length: number) {
+  if (globalThis.crypto?.getRandomValues) {
+    const values = new Uint32Array(1)
+    globalThis.crypto.getRandomValues(values)
+    return values[0] % length
+  }
+  return Math.floor(Math.random() * length)
+}
+
+function generateRandomPassword() {
+  const allChars = PASSWORD_CHARSETS.join('')
+  const chars = PASSWORD_CHARSETS.map(
+    (charset) => charset[getRandomIndex(charset.length)]
+  )
+
+  while (chars.length < PASSWORD_LENGTH) {
+    chars.push(allChars[getRandomIndex(allChars.length)])
+  }
+
+  for (let i = chars.length - 1; i > 0; i--) {
+    const j = getRandomIndex(i + 1)
+    const current = chars[i]
+    chars[i] = chars[j]
+    chars[j] = current
+  }
+
+  return chars.join('')
+}
+
 type UsersMutateDrawerProps = {
   open: boolean
   onOpenChange: (open: boolean) => void
@@ -82,6 +120,9 @@ export function UsersMutateDrawer({
   const { t } = useTranslation()
   const isUpdate = !!currentRow
   const { triggerRefresh } = useUsers()
+  const { copyToClipboard } = useCopyToClipboard({
+    successMessage: t('Random password copied to clipboard'),
+  })
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [quotaDialogOpen, setQuotaDialogOpen] = useState(false)
 
@@ -120,9 +161,19 @@ export function UsersMutateDrawer({
 
   const currentQuotaRaw = form.watch('quota_dollars') || 0
 
+  const handleGeneratePassword = async () => {
+    const password = generateRandomPassword()
+    form.setValue('password', password, {
+      shouldDirty: true,
+      shouldValidate: true,
+    })
+    form.clearErrors('password')
+    await copyToClipboard(password)
+  }
+
   const onSubmit = async (data: UserFormValues) => {
-    if (!isUpdate) {
-      const passwordLength = data.password?.length || 0
+    if (!isUpdate || data.password) {
+      const passwordLength = data.password?.length ?? 0
       if (passwordLength < 8 || passwordLength > 20) {
         form.setError('password', {
           type: 'manual',
@@ -288,18 +339,36 @@ export function UsersMutateDrawer({
                   name='password'
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>{t('Password')}</FormLabel>
-                      <FormControl>
-                        <Input
-                          {...field}
-                          type='password'
-                          placeholder={
-                            isUpdate
-                              ? t('Leave empty to keep unchanged')
-                              : t('Enter password (min 8 characters)')
-                          }
-                        />
-                      </FormControl>
+                      <FormLabel>
+                        {isUpdate ? t('Reset password') : t('Password')}
+                      </FormLabel>
+                      <div className='flex gap-2'>
+                        <FormControl>
+                          <Input
+                            {...field}
+                            type='password'
+                            placeholder={
+                              isUpdate
+                                ? t('Leave empty to keep unchanged')
+                                : t('Enter password (min 8 characters)')
+                            }
+                          />
+                        </FormControl>
+                        {isUpdate && (
+                          <Button
+                            type='button'
+                            variant='outline'
+                            onClick={handleGeneratePassword}
+                          >
+                            {t('Generate and copy')}
+                          </Button>
+                        )}
+                      </div>
+                      {isUpdate && (
+                        <FormDescription>
+                          {t('Leave empty to keep unchanged')}
+                        </FormDescription>
+                      )}
                       <FormMessage />
                     </FormItem>
                   )}

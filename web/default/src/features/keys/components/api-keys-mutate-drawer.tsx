@@ -30,6 +30,7 @@ import {
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import { getUserModels, getUserGroups } from '@/lib/api'
+import { copyToClipboard } from '@/lib/copy-to-clipboard'
 import { getCurrencyDisplay, getCurrencyLabel } from '@/lib/currency'
 import { cn } from '@/lib/utils'
 import { useStatus } from '@/hooks/use-status'
@@ -118,7 +119,7 @@ export function ApiKeysMutateDrawer({
 }: ApiKeyMutateDrawerProps) {
   const { t } = useTranslation()
   const isUpdate = !!currentRow
-  const { triggerRefresh } = useApiKeys()
+  const { triggerRefresh, cacheResolvedKeys } = useApiKeys()
   const { status } = useStatus()
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [advancedOpen, setAdvancedOpen] = useState(false)
@@ -203,17 +204,29 @@ export function ApiKeysMutateDrawer({
         // Create mode - handle batch creation
         const count = data.tokenCount || 1
         let successCount = 0
+        const createdKeys: Record<number, string> = {}
+        const createdKeyLines: string[] = []
 
         for (let i = 0; i < count; i++) {
+          const tokenName =
+            i === 0 && data.name
+              ? data.name
+              : `${data.name || 'default'}-${Math.random().toString(36).slice(2, 8)}`
           const result = await createApiKey({
             ...basePayload,
-            name:
-              i === 0 && data.name
-                ? data.name
-                : `${data.name || 'default'}-${Math.random().toString(36).slice(2, 8)}`,
+            name: tokenName,
           })
           if (result.success) {
             successCount++
+            if (result.data?.id && result.data.key) {
+              const fullKey = result.data.key.startsWith('sk-')
+                ? result.data.key
+                : `sk-${result.data.key}`
+              createdKeys[result.data.id] = fullKey
+              createdKeyLines.push(
+                `${result.data.name || tokenName}\t${fullKey}`
+              )
+            }
           } else {
             toast.error(result.message || t(ERROR_MESSAGES.CREATE_FAILED))
             break
@@ -221,6 +234,17 @@ export function ApiKeysMutateDrawer({
         }
 
         if (successCount > 0) {
+          cacheResolvedKeys(createdKeys)
+          if (createdKeyLines.length > 0) {
+            const copied = await copyToClipboard(createdKeyLines.join('\n'))
+            if (copied) {
+              toast.success(
+                t('Copied {{count}} key(s)', { count: createdKeyLines.length })
+              )
+            } else {
+              toast.error(t('Failed to copy keys'))
+            }
+          }
           toast.success(
             t('Successfully created {{count}} API Key(s)', {
               count: successCount,
@@ -383,12 +407,12 @@ export function ApiKeysMutateDrawer({
                       <FormControl>
                         <Input
                           {...field}
+                          value={field.value ?? ''}
                           type='number'
                           min='1'
                           placeholder={t('Number of keys to create')}
-                          onChange={(e) =>
-                            field.onChange(parseInt(e.target.value, 10) || 1)
-                          }
+                          onFocus={(e) => e.target.select()}
+                          onChange={(e) => field.onChange(e.target.value)}
                         />
                       </FormControl>
                       <FormDescription>
@@ -418,12 +442,20 @@ export function ApiKeysMutateDrawer({
                       <FormControl>
                         <Input
                           {...field}
+                          value={field.value ?? ''}
                           type='number'
                           step={tokensOnly ? 1 : 0.01}
                           placeholder={quotaPlaceholder}
-                          onChange={(e) =>
-                            field.onChange(parseFloat(e.target.value) || 0)
-                          }
+                          onFocus={(e) => e.target.select()}
+                          onChange={(e) => {
+                            const value = e.target.value
+                            const pattern = tokensOnly
+                              ? /^\d*$/
+                              : /^\d*(\.\d{0,2})?$/
+                            if (pattern.test(value)) {
+                              field.onChange(value)
+                            }
+                          }}
                         />
                       </FormControl>
                       <FormDescription>

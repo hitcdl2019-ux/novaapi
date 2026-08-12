@@ -16,7 +16,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { getRouteApi } from '@tanstack/react-router'
 import {
@@ -189,7 +189,7 @@ function ApiKeysMobileList({
 
 export function ApiKeysTable() {
   const { t } = useTranslation()
-  const { refreshTrigger } = useApiKeys()
+  const { refreshTrigger, setVisibleKeyIds } = useApiKeys()
   const columns = useApiKeysColumns()
   const [rowSelection, setRowSelection] = useState({})
   const [sorting, setSorting] = useState<SortingState>([])
@@ -256,7 +256,15 @@ export function ApiKeysTable() {
     placeholderData: (previousData) => previousData,
   })
 
-  const apiKeys = data?.items || []
+  const apiKeys = useMemo(() => data?.items || [], [data?.items])
+  const apiKeyIds = useMemo(
+    () => apiKeys.map((apiKey) => apiKey.id).join(','),
+    [apiKeys]
+  )
+
+  useEffect(() => {
+    setVisibleKeyIds(apiKeys.map((apiKey) => apiKey.id))
+  }, [apiKeyIds, apiKeys, setVisibleKeyIds])
 
   const table = useReactTable({
     data: apiKeys,

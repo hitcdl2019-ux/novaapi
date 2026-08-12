@@ -35,6 +35,9 @@ type ApiKeysContextType = {
   setResolvedKey: React.Dispatch<React.SetStateAction<string>>
   resolveRealKey: (id: number) => Promise<string | null>
   resolveRealKeysBatch: (ids: number[]) => Promise<Record<number, string>>
+  cacheResolvedKeys: (keys: Record<number, string>) => void
+  visibleKeyIds: number[]
+  setVisibleKeyIds: React.Dispatch<React.SetStateAction<number[]>>
   resolvedKeys: Record<number, string>
   loadingKeys: Record<number, boolean>
   copiedKeyId: number | null
@@ -50,6 +53,7 @@ export function ApiKeysProvider({ children }: { children: React.ReactNode }) {
   const [refreshTrigger, setRefreshTrigger] = useState(0)
   const [resolvedKey, setResolvedKey] = useState('')
 
+  const [visibleKeyIds, setVisibleKeyIds] = useState<number[]>([])
   const [resolvedKeys, setResolvedKeys] = useState<Record<number, string>>({})
   const [loadingKeys, setLoadingKeys] = useState<Record<number, boolean>>({})
   const pendingRequests = useRef<Record<number, Promise<string | null>>>({})
@@ -69,6 +73,12 @@ export function ApiKeysProvider({ children }: { children: React.ReactNode }) {
 
   const triggerRefresh = useCallback(() => {
     setRefreshTrigger((prev) => prev + 1)
+  }, [])
+
+  const cacheResolvedKeys = useCallback((keys: Record<number, string>) => {
+    if (Object.keys(keys).length > 0) {
+      setResolvedKeys((prev) => ({ ...prev, ...keys }))
+    }
   }, [])
 
   const resolveRealKey = useCallback(
@@ -165,6 +175,9 @@ export function ApiKeysProvider({ children }: { children: React.ReactNode }) {
         setResolvedKey,
         resolveRealKey,
         resolveRealKeysBatch,
+        cacheResolvedKeys,
+        visibleKeyIds,
+        setVisibleKeyIds,
         resolvedKeys,
         loadingKeys,
         copiedKeyId,

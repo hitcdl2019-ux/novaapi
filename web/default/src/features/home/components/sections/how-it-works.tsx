@@ -58,7 +58,7 @@ export function HowItWorks() {
 
         {/* Steps with connecting line */}
         <div className='relative mx-auto max-w-3xl'>
-          {/* Connecting dashed line — spans between step icons */}
+          {/* Connecting dashed line between step icons */}
           <div
             aria-hidden
             className='absolute left-[calc(16.67%+2rem)] right-[calc(16.67%+2rem)] top-[2rem] hidden md:block'
@@ -66,7 +66,7 @@ export function HowItWorks() {
             <div className='relative h-[2px]'>
               {/* Gray dashed background line */}
               <div className='absolute inset-0 border-t-2 border-dashed border-gray-300 dark:border-gray-600' />
-              {/* Animated glowing progress line — grows from left to right */}
+              {/* Animated glowing progress line grows from left to right */}
               <div
                 className='absolute inset-0 origin-left border-t-2 border-indigo-500 dark:border-indigo-400 shadow-[0_0_8px_rgba(99,102,241,0.5)]'
                 style={{

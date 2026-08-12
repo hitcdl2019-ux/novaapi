@@ -20,6 +20,7 @@ For commercial licensing, please contact support@quantumnous.com
 import React, { useEffect, useState, useContext, useRef } from 'react';
 import {
   API,
+  copy,
   showError,
   showSuccess,
   timestamp2string,
@@ -253,6 +254,8 @@ const EditTokenModal = (props) => {
     } else {
       const count = parseInt(values.tokenCount, 10) || 1;
       let successCount = 0;
+      const createdKeys = {};
+      const createdKeyLines = [];
       for (let i = 0; i < count; i++) {
         let { tokenCount: _tc, ...localInputs } = values;
         const baseName =
@@ -286,12 +289,29 @@ const EditTokenModal = (props) => {
         const { success, message } = res.data;
         if (success) {
           successCount++;
+          if (res.data.data?.id && res.data.data.key) {
+            const key = res.data.data.key.startsWith('sk-')
+              ? res.data.data.key.slice(3)
+              : res.data.data.key;
+            createdKeys[res.data.data.id] = key;
+            createdKeyLines.push(
+              `${res.data.data.name || localInputs.name}\tsk-${key}`,
+            );
+          }
         } else {
           showError(t(message));
           break;
         }
       }
       if (successCount > 0) {
+        props.cacheResolvedTokenKeys?.(createdKeys);
+        if (createdKeyLines.length > 0) {
+          if (await copy(createdKeyLines.join('\n'))) {
+            showSuccess(t('已复制到剪贴板！'));
+          } else {
+            showError(t('无法复制到剪贴板，请手动复制'));
+          }
+        }
         showSuccess(t('令牌创建成功，请在列表页面点击复制获取令牌！'));
         props.refresh();
         props.handleClose();

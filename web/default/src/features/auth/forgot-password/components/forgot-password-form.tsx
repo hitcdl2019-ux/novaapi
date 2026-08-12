@@ -98,7 +98,7 @@ export function ForgotPasswordForm({
           name='email'
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Email</FormLabel>
+              <FormLabel>{t('Email')}</FormLabel>
               <FormControl>
                 <Input placeholder='name@example.com' {...field} />
               </FormControl>
@@ -108,7 +108,9 @@ export function ForgotPasswordForm({
         />
 
         <Button type='submit' className='mt-2' disabled={isLoading || isActive}>
-          {isActive ? `Resend (${secondsLeft}s)` : 'Send reset email'}
+          {isActive
+            ? t('Resend ({{seconds}}s)', { seconds: secondsLeft })
+            : t('Send reset email')}
           {isLoading ? <Loader2 className='animate-spin' /> : <ArrowRight />}
         </Button>
 
