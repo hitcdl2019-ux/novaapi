@@ -50,8 +50,8 @@ services:
       - ./npm/data:/data
       - ./npm/letsencrypt:/etc/letsencrypt
     networks:
-      - nova-network
+      - new-api-network
 
 networks:
-  nova-network:
+  new-api-network:
     driver: bridge
