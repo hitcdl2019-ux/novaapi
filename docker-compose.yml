@@ -7,7 +7,7 @@ services:
     restart: always
     command: --log-dir /app/logs
     ports:
-      - "80:3000"
+      - "3000:3000"
     volumes:
       - ./data:/data
       - ./logs:/app/logs
@@ -37,6 +37,20 @@ services:
       - ./mysql_data:/var/lib/mysql
     networks:
       - new-api-network
+
+  npm:
+    image: jc21/nginx-proxy-manager:latest
+    container_name: npm
+    restart: always
+    ports:
+      - "80:80"    # HTTP 端口
+      - "443:443"  # HTTPS 安全端口 (这是绿锁的关键)
+      - "81:81"    # NPM 后台管理端口
+    volumes:
+      - ./npm/data:/data
+      - ./npm/letsencrypt:/etc/letsencrypt
+    networks:
+      - nova-network
 
 networks:
   new-api-network:
