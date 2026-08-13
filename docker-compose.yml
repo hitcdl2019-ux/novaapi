@@ -53,5 +53,5 @@ services:
       - nova-network
 
 networks:
-  new-api-network:
+  nova-network:
     driver: bridge
