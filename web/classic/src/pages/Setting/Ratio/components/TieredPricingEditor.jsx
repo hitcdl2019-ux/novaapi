@@ -964,6 +964,49 @@ function CacheTokenEstimatorInputs({
 // Cost estimator (works with any Expr string)
 // ---------------------------------------------------------------------------
 
+const WEEKDAY_MAP = {
+  Sun: 0,
+  Mon: 1,
+  Tue: 2,
+  Wed: 3,
+  Thu: 4,
+  Fri: 5,
+  Sat: 6,
+};
+
+function getTimePart(timezone, part) {
+  const tz = timezone?.trim() || 'UTC';
+  try {
+    const parts = new Intl.DateTimeFormat('en-US', {
+      timeZone: tz,
+      hourCycle: 'h23',
+      hour: 'numeric',
+      minute: 'numeric',
+      weekday: 'short',
+      month: 'numeric',
+      day: 'numeric',
+    }).formatToParts(new Date());
+    const value = parts.find((item) => item.type === part)?.value;
+    if (part === 'weekday') return WEEKDAY_MAP[value || 'Sun'] ?? 0;
+    return Number(value) || 0;
+  } catch {
+    return getTimePart('UTC', part);
+  }
+}
+
+function getCnyExchangeRate() {
+  try {
+    const status = JSON.parse(localStorage.getItem('status') || '{}');
+    return Number(status?.usd_exchange_rate) || 7;
+  } catch {
+    return 7;
+  }
+}
+
+function normalizeExchangeRate(rate) {
+  return Number.isFinite(rate) && rate > 0 ? rate : 1;
+}
+
 function evalExprLocally(exprStr, p, c, extraTokenValues) {
   try {
     let matchedTier = '';
@@ -975,7 +1018,26 @@ function evalExprLocally(exprStr, p, c, extraTokenValues) {
     const cacheCreateTokens = extraTokenValues.cacheCreateTokens || 0;
     const cacheCreate1hTokens = extraTokenValues.cacheCreate1hTokens || 0;
     const len = p + cacheReadTokens + cacheCreateTokens + cacheCreate1hTokens;
-    const env = { p, c, len, tier: tierFn, max: Math.max, min: Math.min, abs: Math.abs, ceil: Math.ceil, floor: Math.floor };
+    const cnyRate = normalizeExchangeRate(getCnyExchangeRate());
+    const env = {
+      p,
+      c,
+      len,
+      tier: tierFn,
+      max: Math.max,
+      min: Math.min,
+      abs: Math.abs,
+      ceil: Math.ceil,
+      floor: Math.floor,
+      hour: (tz) => getTimePart(tz, 'hour'),
+      minute: (tz) => getTimePart(tz, 'minute'),
+      weekday: (tz) => getTimePart(tz, 'weekday'),
+      month: (tz) => getTimePart(tz, 'month'),
+      day: (tz) => getTimePart(tz, 'day'),
+      cny: (amount) => amount / cnyRate,
+      rmb: (amount) => amount / cnyRate,
+      currency: (amount, rate) => amount / normalizeExchangeRate(rate),
+    };
     for (const field of EXTRA_ESTIMATOR_FIELDS) {
       env[field.var] = extraTokenValues[field.stateKey] || 0;
     }

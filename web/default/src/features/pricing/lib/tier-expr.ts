@@ -16,6 +16,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
+import { getPricingInputCurrency } from '@/lib/currency'
 import { BILLING_CACHE_VAR_MAP } from './billing-expr'
 
 export const CACHE_MODE_TIMED = 'timed'
@@ -112,21 +113,62 @@ function buildConditionStr(conditions: TierConditionInput[]): string {
     .join(' && ')
 }
 
-function buildTierBodyExpr(tier: VisualTier): string {
+type PriceFunctionOptions = {
+  name?: 'cny' | 'currency'
+  rate?: number
+}
+
+function formatNumberForExpr(value: number): string {
+  return Number(value.toFixed(12)).toString()
+}
+
+function formatPriceForExpr(value: number, options?: PriceFunctionOptions) {
+  const rate = normalizeExchangeRate(options?.rate ?? 1)
+  if (options?.name === 'cny') {
+    return `cny(${formatNumberForExpr(value * rate)})`
+  }
+  if (options?.name === 'currency') {
+    return `currency(${formatNumberForExpr(value * rate)}, ${formatNumberForExpr(rate)})`
+  }
+  return formatNumberForExpr(value)
+}
+
+function parsePriceAtom(atom: string, currentRate: number): number {
+  const text = atom.trim()
+  const cnyMatch = text.match(/^(?:cny|rmb)\(\s*([\d.eE+-]+)\s*\)$/)
+  if (cnyMatch) {
+    return Number(cnyMatch[1]) / normalizeExchangeRate(currentRate)
+  }
+  const currencyMatch = text.match(
+    /^currency\(\s*([\d.eE+-]+)\s*,\s*([\d.eE+-]+)\s*\)$/
+  )
+  if (currencyMatch) {
+    return Number(currencyMatch[1]) / normalizeExchangeRate(Number(currencyMatch[2]))
+  }
+  return Number(text)
+}
+
+function buildTierBodyExpr(
+  tier: VisualTier,
+  priceOptions?: PriceFunctionOptions
+): string {
   const parts: string[] = []
   const ic = Number(tier.input_unit_cost) || 0
   const oc = Number(tier.output_unit_cost) || 0
-  parts.push(`p * ${ic}`)
-  parts.push(`c * ${oc}`)
+  parts.push(`p * ${formatPriceForExpr(ic, priceOptions)}`)
+  parts.push(`c * ${formatPriceForExpr(oc, priceOptions)}`)
   for (const cv of BILLING_CACHE_VAR_MAP) {
     const v = Number((tier as Record<string, unknown>)[cv.field]) || 0
-    if (v !== 0) parts.push(`${cv.exprVar} * ${v}`)
+    if (v !== 0) {
+      parts.push(`${cv.exprVar} * ${formatPriceForExpr(v, priceOptions)}`)
+    }
   }
   return parts.join(' + ')
 }
 
 export function generateExprFromVisualConfig(
-  config: VisualConfig | null | undefined
+  config: VisualConfig | null | undefined,
+  priceOptions?: PriceFunctionOptions
 ): string {
   if (!config || !config.tiers || config.tiers.length === 0) {
     return 'p * 0 + c * 0'
@@ -136,7 +178,7 @@ export function generateExprFromVisualConfig(
   if (tiers.length === 1) {
     const tier = tiers[0]
     const label = tier.label || 'default'
-    const body = `tier("${label}", ${buildTierBodyExpr(tier)})`
+    const body = `tier("${label}", ${buildTierBodyExpr(tier, priceOptions)})`
     const cond = buildConditionStr(tier.conditions)
     if (cond) {
       return `${cond} ? ${body} : p * 0 + c * 0`
@@ -148,7 +190,7 @@ export function generateExprFromVisualConfig(
   for (let i = 0; i < tiers.length; i++) {
     const tier = tiers[i]
     const label = tier.label || `tier_${i + 1}`
-    const body = `tier("${label}", ${buildTierBodyExpr(tier)})`
+    const body = `tier("${label}", ${buildTierBodyExpr(tier, priceOptions)})`
     const cond = buildConditionStr(tier.conditions)
 
     if (i < tiers.length - 1 && cond) {
@@ -169,24 +211,29 @@ export function tryParseVisualConfig(
     const versionMatch = body.match(/^v\d+:([\s\S]*)$/)
     if (versionMatch) body = versionMatch[1]
     const cacheVarNames = BILLING_CACHE_VAR_MAP.map((cv) => cv.exprVar)
+    const priceAtom =
+      `(?:[\\d.eE+-]+|(?:cny|rmb)\\(\\s*[\\d.eE+-]+\\s*\\)|` +
+      `currency\\(\\s*[\\d.eE+-]+\\s*,\\s*[\\d.eE+-]+\\s*\\))`
     const optCacheStr = cacheVarNames
-      .map((v) => `(?:\\s*\\+\\s*${v}\\s*\\*\\s*([\\d.eE+-]+))?`)
+      .map((v) => `(?:\\s*\\+\\s*${v}\\s*\\*\\s*(${priceAtom}))?`)
       .join('')
 
-    const bodyPat = `p\\s*\\*\\s*([\\d.eE+-]+)\\s*\\+\\s*c\\s*\\*\\s*([\\d.eE+-]+)${optCacheStr}`
+    const bodyPat = `p\\s*\\*\\s*(${priceAtom})\\s*\\+\\s*c\\s*\\*\\s*(${priceAtom})${optCacheStr}`
+    const pricingCurrency = getPricingInputCurrency()
+    const currentRate = normalizeExchangeRate(pricingCurrency.rate)
 
     const singleRe = new RegExp(`^tier\\("([^"]*)",\\s*${bodyPat}\\)$`)
     const simple = body.match(singleRe)
     if (simple) {
       const tier: Record<string, unknown> = {
         conditions: [],
-        input_unit_cost: Number(simple[2]),
-        output_unit_cost: Number(simple[3]),
+        input_unit_cost: parsePriceAtom(simple[2], currentRate),
+        output_unit_cost: parsePriceAtom(simple[3], currentRate),
         label: simple[1],
       }
       BILLING_CACHE_VAR_MAP.forEach((cv, i) => {
         const val = simple[4 + i]
-        if (val != null) tier[cv.field] = Number(val)
+        if (val != null) tier[cv.field] = parsePriceAtom(val, currentRate)
       })
       return normalizeVisualConfig({
         tiers: [normalizeVisualTier(tier as Partial<VisualTier>)],
@@ -219,21 +266,26 @@ export function tryParseVisualConfig(
       }
       const tier: Record<string, unknown> = {
         conditions,
-        input_unit_cost: Number(match[3]),
-        output_unit_cost: Number(match[4]),
+        input_unit_cost: parsePriceAtom(match[3], currentRate),
+        output_unit_cost: parsePriceAtom(match[4], currentRate),
         label: match[2],
       }
       const m = match
       BILLING_CACHE_VAR_MAP.forEach((cv, i) => {
         const val = m[5 + i]
-        if (val != null) tier[cv.field] = Number(val)
+        if (val != null) tier[cv.field] = parsePriceAtom(val, currentRate)
       })
       tiers.push(normalizeVisualTier(tier as Partial<VisualTier>))
     }
     if (tiers.length === 0) return null
 
     const cfg = normalizeVisualConfig({ tiers })
-    const regenerated = generateExprFromVisualConfig(cfg)
+    const regenerated = generateExprFromVisualConfig(
+      cfg,
+      pricingCurrency.label === 'CNY'
+        ? { name: 'cny', rate: currentRate }
+        : undefined
+    )
     if (regenerated.replace(/\s+/g, '') !== body.replace(/\s+/g, '')) {
       return null
     }
@@ -268,6 +320,43 @@ export type EvalResult = {
   error: string | null
 }
 
+const WEEKDAY_MAP: Record<string, number> = {
+  Sun: 0,
+  Mon: 1,
+  Tue: 2,
+  Wed: 3,
+  Thu: 4,
+  Fri: 5,
+  Sat: 6,
+}
+
+function getTimePart(
+  timezone: string,
+  part: 'hour' | 'minute' | 'month' | 'day' | 'weekday'
+) {
+  const tz = timezone?.trim() || 'UTC'
+  try {
+    const parts = new Intl.DateTimeFormat('en-US', {
+      timeZone: tz,
+      hourCycle: 'h23',
+      hour: 'numeric',
+      minute: 'numeric',
+      weekday: 'short',
+      month: 'numeric',
+      day: 'numeric',
+    }).formatToParts(new Date())
+    const value = parts.find((item) => item.type === part)?.value
+    if (part === 'weekday') return WEEKDAY_MAP[value || 'Sun'] ?? 0
+    return Number(value) || 0
+  } catch {
+    return getTimePart('UTC', part)
+  }
+}
+
+function normalizeExchangeRate(rate: number) {
+  return Number.isFinite(rate) && rate > 0 ? rate : 1
+}
+
 export function evalExprLocally(
   exprStr: string,
   promptTokens: number,
@@ -288,6 +377,7 @@ export function evalExprLocally(
     const cacheCreate1hTokens = extraTokenValues.cacheCreate1hTokens || 0
     const len =
       promptTokens + cacheReadTokens + cacheCreateTokens + cacheCreate1hTokens
+    const cnyRate = normalizeExchangeRate(getPricingInputCurrency().rate)
     const env: Record<string, unknown> = {
       p: promptTokens,
       c: completionTokens,
@@ -298,6 +388,15 @@ export function evalExprLocally(
       abs: Math.abs,
       ceil: Math.ceil,
       floor: Math.floor,
+      hour: (tz: string) => getTimePart(tz, 'hour'),
+      minute: (tz: string) => getTimePart(tz, 'minute'),
+      weekday: (tz: string) => getTimePart(tz, 'weekday'),
+      month: (tz: string) => getTimePart(tz, 'month'),
+      day: (tz: string) => getTimePart(tz, 'day'),
+      cny: (amount: number) => amount / cnyRate,
+      rmb: (amount: number) => amount / cnyRate,
+      currency: (amount: number, rate: number) =>
+        amount / normalizeExchangeRate(rate),
     }
     for (const field of ESTIMATOR_VARS) {
       env[field.var] = extraTokenValues[field.stateKey] || 0

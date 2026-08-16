@@ -42,6 +42,9 @@ export type DynamicPriceEntry = {
   label: string
   shortLabel: string
   value: number
+  minValue?: number
+  maxValue?: number
+  isRange?: boolean
   formatted: string
   variable: BillingVar
 }
@@ -148,7 +151,59 @@ export function getDynamicPriceEntries(
         label: variable.label,
         shortLabel: variable.shortLabel,
         value,
+        minValue: value,
+        maxValue: value,
+        isRange: false,
         formatted: formatDynamicUnitPrice(value, options),
+        variable,
+      },
+    ]
+  }).sort((a, b) => {
+    const aPrimary = PRIMARY_DYNAMIC_FIELDS.has(a.field)
+    const bPrimary = PRIMARY_DYNAMIC_FIELDS.has(b.field)
+    if (aPrimary !== bPrimary) return aPrimary ? -1 : 1
+    return 0
+  })
+}
+
+function getDynamicPriceRangeEntries(
+  tiers: ParsedTier[],
+  options: DynamicPriceOptions
+): DynamicPriceEntry[] {
+  if (tiers.length === 0) return []
+
+  return BILLING_PRICING_VARS.flatMap((variable) => {
+    if (!variable.field) return []
+
+    const values = tiers
+      .map((tier) => Number(tier[variable.field as string]))
+      .filter((value) => Number.isFinite(value) && value >= 0)
+
+    if (values.length === 0) return []
+
+    const maxValue = Math.max(...values)
+    if (maxValue <= 0) return []
+
+    const minValue = Math.min(...values)
+    const isRange = minValue !== maxValue
+    const formatted = isRange
+      ? `${formatDynamicUnitPrice(minValue, options)}~${formatDynamicUnitPrice(
+          maxValue,
+          options
+        )}`
+      : formatDynamicUnitPrice(minValue, options)
+
+    return [
+      {
+        key: variable.key,
+        field: variable.field,
+        label: variable.label,
+        shortLabel: variable.shortLabel,
+        value: minValue,
+        minValue,
+        maxValue,
+        isRange,
+        formatted,
         variable,
       },
     ]
@@ -168,7 +223,7 @@ export function getDynamicPricingSummary(
 
   const tiers = getDynamicPricingTiers(model)
   const tier = tiers[0] || null
-  const entries = getDynamicPriceEntries(tier, options)
+  const entries = getDynamicPriceRangeEntries(tiers, options)
   const rawExpression = model.billing_expr || ''
 
   return {

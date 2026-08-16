@@ -279,6 +279,7 @@ func modelPriceHelperTiered(c *gin.Context, info *relaycommon.RelayInfo, promptT
 	if err != nil {
 		return types.PriceData{}, err
 	}
+	requestInput.CNYExchangeRate = operation_setting.USDExchangeRate
 
 	tokenCoefficient := normalizeTokenCoefficient(info.UserSetting.TokenCoefficient)
 	scaledPromptTokens := applyTokenCoefficient(promptTokens, tokenCoefficient)
@@ -319,6 +320,7 @@ func modelPriceHelperTiered(c *gin.Context, info *relaycommon.RelayInfo, promptT
 		EstimatedTier:             trace.MatchedTier,
 		QuotaPerUnit:              common.QuotaPerUnit,
 		ExprVersion:               billingexpr.ExprVersion(exprStr),
+		CNYExchangeRate:           requestInput.CNYExchangeRate,
 	}
 	info.TieredBillingSnapshot = snapshot
 	info.BillingRequestInput = &requestInput

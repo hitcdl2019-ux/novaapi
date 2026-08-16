@@ -27,6 +27,7 @@ For commercial licensing, please contact support@quantumnous.com
  * the regular expressions are exact rather than tolerant of arbitrary
  * expression syntax.
  */
+import { getPricingInputCurrency } from '@/lib/currency'
 
 // ---------------------------------------------------------------------------
 // Variable registry
@@ -160,10 +161,20 @@ export const BILLING_CACHE_VAR_MAP = BILLING_EXTRA_VARS.map((v) => ({
   exprVar: v.key,
 }))
 
+const BILLING_VAR_NAMES = BILLING_PRICING_VARS.map((v) => v.key).join('|')
 const BILLING_VAR_REGEX = new RegExp(
-  `\\b(${BILLING_PRICING_VARS.map((v) => v.key).join('|')})\\s*\\*\\s*([\\d.eE+-]+)`,
+  `\\b(${BILLING_VAR_NAMES})\\s*\\*\\s*([\\d.eE+-]+)`,
   'g'
 )
+const BILLING_VAR_CNY_REGEX = new RegExp(
+  `\\b(${BILLING_VAR_NAMES})\\s*\\*\\s*(?:cny|rmb)\\(\\s*([\\d.eE+-]+)\\s*\\)`,
+  'g'
+)
+const BILLING_VAR_CURRENCY_REGEX = new RegExp(
+  `\\b(${BILLING_VAR_NAMES})\\s*\\*\\s*currency\\(\\s*([\\d.eE+-]+)\\s*,\\s*([\\d.eE+-]+)\\s*\\)`,
+  'g'
+)
+const TIER_BODY_PATTERN = `((?:[^()]|\\([^()]*\\))+)`
 
 // ---------------------------------------------------------------------------
 // Request rule constants
@@ -253,10 +264,20 @@ function stripExprVersion(exprStr: string): { version: number; body: string } {
 
 function parseTierBody(bodyStr: string): Record<string, number> {
   const coeffs: Record<string, number> = {}
+  const currentRate = getPricingInputCurrency().rate || 1
   const re = new RegExp(BILLING_VAR_REGEX.source, 'g')
   let m
   while ((m = re.exec(bodyStr)) !== null) {
     if (!(m[1] in coeffs)) coeffs[m[1]] = Number(m[2])
+  }
+  const cnyRe = new RegExp(BILLING_VAR_CNY_REGEX.source, 'g')
+  while ((m = cnyRe.exec(bodyStr)) !== null) {
+    if (!(m[1] in coeffs)) coeffs[m[1]] = Number(m[2]) / currentRate
+  }
+  const currencyRe = new RegExp(BILLING_VAR_CURRENCY_REGEX.source, 'g')
+  while ((m = currencyRe.exec(bodyStr)) !== null) {
+    const rate = Number(m[3]) || 1
+    if (!(m[1] in coeffs)) coeffs[m[1]] = Number(m[2]) / rate
   }
   const tier: Record<string, number> = {}
   for (const [varName, field] of Object.entries(BILLING_VAR_KEY_TO_FIELD)) {
@@ -273,7 +294,7 @@ export function parseTiersFromExpr(exprStr: string): ParsedTier[] {
       `((?:(?:p|c|len)\\s*(?:<|<=|>|>=)\\s*[\\d.eE+]+)` +
       `(?:\\s*&&\\s*(?:p|c|len)\\s*(?:<|<=|>|>=)\\s*[\\d.eE+]+)*)`
     const tierRe = new RegExp(
-      `(?:${condGroup}\\s*\\?\\s*)?tier\\("([^"]*)",\\s*([^)]+)\\)`,
+      `(?:${condGroup}\\s*\\?\\s*)?tier\\("([^"]*)",\\s*${TIER_BODY_PATTERN}\\)`,
       'g'
     )
     const tiers: ParsedTier[] = []

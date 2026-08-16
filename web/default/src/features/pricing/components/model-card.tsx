@@ -24,14 +24,24 @@ import { cn } from '@/lib/utils'
 import { useCopyToClipboard } from '@/hooks/use-copy-to-clipboard'
 import { DEFAULT_TOKEN_UNIT } from '../constants'
 import {
+  getDynamicPriceEntries,
   getDynamicDisplayGroupRatio,
   getDynamicPricingSummary,
+  type DynamicPriceEntry,
+  type DynamicPricingSummary,
 } from '../lib/dynamic-price'
 import { parseTags } from '../lib/filters'
 import { isTokenBasedModel } from '../lib/model-helpers'
 import { formatPrice, formatRequestPrice } from '../lib/price'
 import type { PricingModel, TokenUnit, PriceType } from '../types'
 import { ModelPerfBadge, type ModelPerfBadgeData } from './model-perf-badge'
+
+type PeakValleyPriceRow = {
+  key: 'peak' | 'offPeak'
+  labelKey: string
+  timeLabel: string
+  entries: DynamicPriceEntry[]
+}
 
 export interface ModelCardProps {
   model: PricingModel
@@ -42,6 +52,84 @@ export interface ModelCardProps {
   showRechargePrice?: boolean
   perf?: ModelPerfBadgeData
   isAdmin?: boolean
+}
+
+function normalizeTierLabel(label: unknown): string {
+  return String(label || '')
+    .toLowerCase()
+    .replace(/[\s_-]+/g, '')
+}
+
+function isPeakTier(label: unknown): boolean {
+  const normalized = normalizeTierLabel(label)
+  return (
+    (normalized.includes('peak') ||
+      normalized.includes('高峰') ||
+      normalized.includes('峰')) &&
+    !isOffPeakTier(label)
+  )
+}
+
+function isOffPeakTier(label: unknown): boolean {
+  const normalized = normalizeTierLabel(label)
+  return (
+    normalized.includes('offpeak') ||
+    normalized.includes('idle') ||
+    normalized.includes('valley') ||
+    normalized.includes('空闲') ||
+    normalized.includes('低峰') ||
+    normalized.includes('谷')
+  )
+}
+
+function formatHourLabel(value: string): string {
+  const hour = Number(value)
+  if (!Number.isFinite(hour)) return value
+  return `${String(hour).padStart(2, '0')}:00`
+}
+
+function getPeakHourRanges(expression: string): string[] {
+  const peakTierIndex = expression.search(/tier\(\s*["']peak["']/i)
+  const conditionExpr =
+    peakTierIndex > 0 ? expression.slice(0, peakTierIndex) : expression
+  const ranges: string[] = []
+  const rangeRe =
+    /hour\(\s*["'][^"']+["']\s*\)\s*>=\s*(\d+(?:\.\d+)?)\s*&&\s*hour\(\s*["'][^"']+["']\s*\)\s*<\s*(\d+(?:\.\d+)?)/gi
+  let match
+  while ((match = rangeRe.exec(conditionExpr)) !== null) {
+    ranges.push(`${formatHourLabel(match[1])}-${formatHourLabel(match[2])}`)
+  }
+  return ranges
+}
+
+function getPeakValleyPriceRows(
+  summary: DynamicPricingSummary,
+  options: Parameters<typeof getDynamicPriceEntries>[1]
+): PeakValleyPriceRow[] {
+  const peakRanges = getPeakHourRanges(summary.rawExpression)
+  if (peakRanges.length === 0) return []
+
+  const peakTier = summary.tiers.find((tier) => isPeakTier(tier.label))
+  const offPeakTier =
+    summary.tiers.find((tier) => isOffPeakTier(tier.label)) ||
+    summary.tiers.find((tier) => tier !== peakTier)
+
+  if (!peakTier || !offPeakTier) return []
+
+  return [
+    {
+      key: 'peak',
+      labelKey: 'Peak price',
+      timeLabel: peakRanges.join(', '),
+      entries: getDynamicPriceEntries(peakTier, options),
+    },
+    {
+      key: 'offPeak',
+      labelKey: 'Off-peak price',
+      timeLabel: 'Other times',
+      entries: getDynamicPriceEntries(offPeakTier, options),
+    },
+  ].filter((row) => row.entries.length > 0)
 }
 
 export const ModelCard = memo(function ModelCard(props: ModelCardProps) {
@@ -91,15 +179,20 @@ export const ModelCard = memo(function ModelCard(props: ModelCardProps) {
           : []),
       ]
     : []
+  const dynamicPriceOptions = {
+    tokenUnit,
+    showRechargePrice,
+    priceRate,
+    usdExchangeRate,
+    groupRatioMultiplier: getDynamicDisplayGroupRatio(props.model),
+  }
   const dynamicSummary = isDynamicPricing
-    ? getDynamicPricingSummary(props.model, {
-        tokenUnit,
-        showRechargePrice,
-        priceRate,
-        usdExchangeRate,
-        groupRatioMultiplier: getDynamicDisplayGroupRatio(props.model),
-      })
+    ? getDynamicPricingSummary(props.model, dynamicPriceOptions)
     : null
+  const peakValleyRows =
+    dynamicSummary && !dynamicSummary.isSpecialExpression
+      ? getPeakValleyPriceRows(dynamicSummary, dynamicPriceOptions)
+      : []
 
   const bottomTags = [...endpoints.slice(0, 2), ...tags.slice(0, 2)]
   const hiddenCount =
@@ -143,9 +236,39 @@ export const ModelCard = memo(function ModelCard(props: ModelCardProps) {
                       {dynamicSummary.rawExpression}
                     </code>
                   </span>
-                ) : dynamicSummary.primaryEntries.length > 0 ? (
+                ) : peakValleyRows.length > 0 ? (
+                  <div className='w-full space-y-1'>
+                    {peakValleyRows.map((row) => (
+                      <div
+                        key={row.key}
+                        className='flex min-w-0 flex-wrap items-baseline gap-x-2 gap-y-0.5'
+                      >
+                        <span className='text-foreground shrink-0 font-medium'>
+                          {t(row.labelKey)}
+                        </span>
+                        <span className='text-muted-foreground/70 shrink-0'>
+                          {row.key === 'offPeak'
+                            ? t(row.timeLabel)
+                            : row.timeLabel}
+                        </span>
+                        {row.entries.map((entry) => (
+                          <span
+                            key={entry.key}
+                            className='text-muted-foreground whitespace-nowrap'
+                          >
+                            {t(entry.shortLabel)}{' '}
+                            <span className='text-foreground font-mono font-semibold'>
+                              {entry.formatted}
+                            </span>
+                            /{tokenUnitLabel}
+                          </span>
+                        ))}
+                      </div>
+                    ))}
+                  </div>
+                ) : dynamicSummary.entries.length > 0 ? (
                   <>
-                    {dynamicSummary.primaryEntries.map((entry) => (
+                    {dynamicSummary.entries.map((entry) => (
                       <span
                         key={entry.key}
                         className='text-muted-foreground whitespace-nowrap'
@@ -250,6 +373,11 @@ export const ModelCard = memo(function ModelCard(props: ModelCardProps) {
           <span className='text-muted-foreground/50 text-xs'>
             {tokenUnitLabel}
           </span>
+          {dynamicSummary && dynamicSummary.tierCount > 1 && (
+            <span className='text-muted-foreground/50 text-xs'>
+              {t('{{count}} tiers', { count: dynamicSummary.tierCount })}
+            </span>
+          )}
           {hiddenCount > 0 && (
             <span className='text-muted-foreground/40 text-xs'>
               +{hiddenCount}

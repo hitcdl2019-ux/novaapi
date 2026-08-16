@@ -84,6 +84,8 @@ Powered by [expr-lang/expr](https://github.com/expr-lang/expr). Expressions are 
 | `weekday` | `weekday(tz) → int` | Day of week (0=Sunday, 6=Saturday) |
 | `month` | `month(tz) → int` | Month (1-12) |
 | `day` | `day(tz) → int` | Day of month (1-31) |
+| `cny` / `rmb` | `cny(amount) → float64` | Converts a CNY price to USD using the request's frozen USD/CNY exchange rate |
+| `currency` | `currency(amount, rate) → float64` | Converts a local-currency price to USD using `1 USD = rate local currency` |
 | `max` | `max(a, b) → float64` | Math max |
 | `min` | `min(a, b) → float64` | Math min |
 | `abs` | `abs(x) → float64` | Absolute value |
@@ -95,6 +97,9 @@ Powered by [expr-lang/expr](https://github.com/expr-lang/expr). Expressions are 
 ```
 # Simple flat pricing
 tier("base", p * 2.5 + c * 15 + cr * 0.25)
+
+# CNY pricing (runtime conversion via current/frozen USD-CNY exchange rate)
+tier("base", p * cny(9) + c * cny(27) + cr * cny(0.3))
 
 # Multi-tier (Claude Sonnet style) — use len for tier conditions
 len <= 200000

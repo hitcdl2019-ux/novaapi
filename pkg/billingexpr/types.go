@@ -6,8 +6,9 @@ import (
 )
 
 type RequestInput struct {
-	Headers map[string]string
-	Body    []byte
+	Headers         map[string]string
+	Body            []byte
+	CNYExchangeRate float64
 }
 
 // TokenParams holds all token dimensions passed into an Expr evaluation.
@@ -49,6 +50,7 @@ type BillingSnapshot struct {
 	EstimatedTier             string  `json:"estimated_tier"`
 	QuotaPerUnit              float64 `json:"quota_per_unit"`
 	ExprVersion               int     `json:"expr_version"`
+	CNYExchangeRate           float64 `json:"cny_exchange_rate,omitempty"`
 }
 
 // TieredResult holds everything needed after running tiered settlement.

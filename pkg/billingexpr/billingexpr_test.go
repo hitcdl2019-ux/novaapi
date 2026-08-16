@@ -948,6 +948,42 @@ func TestTimeFunctions_MonthDayPattern(t *testing.T) {
 	}
 }
 
+func TestCurrencyFunctions_CNY(t *testing.T) {
+	exprStr := `tier("default", p * cny(7) + cr * rmb(0.7) + c * currency(14, 7))`
+	cost, _, err := billingexpr.RunExprWithRequest(
+		exprStr,
+		billingexpr.TokenParams{P: 1000, CR: 100, C: 500},
+		billingexpr.RequestInput{CNYExchangeRate: 7},
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := 1000*1.0 + 100*0.1 + 500*2.0
+	if cost != want {
+		t.Errorf("cost = %f, want %f", cost, want)
+	}
+}
+
+func TestCurrencyFunctions_SnapshotUsesFrozenRate(t *testing.T) {
+	exprStr := `tier("default", p * cny(7))`
+	snap := &billingexpr.BillingSnapshot{
+		BillingMode:     "tiered_expr",
+		ExprString:      exprStr,
+		ExprHash:        billingexpr.ExprHashString(exprStr),
+		GroupRatio:      1,
+		QuotaPerUnit:    500000,
+		ExprVersion:     1,
+		CNYExchangeRate: 7,
+	}
+	result, err := billingexpr.ComputeTieredQuota(snap, billingexpr.TokenParams{P: 1000000})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.ActualQuotaAfterGroup != 500000 {
+		t.Errorf("quota = %d, want 500000", result.ActualQuotaAfterGroup)
+	}
+}
+
 // ---------------------------------------------------------------------------
 // Image and audio token tests
 // ---------------------------------------------------------------------------

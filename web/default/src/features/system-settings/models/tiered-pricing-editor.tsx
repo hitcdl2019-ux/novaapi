@@ -31,6 +31,7 @@ import {
 import { ChevronDown, Copy, Plus, Trash2 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
+import { getPricingInputCurrency } from '@/lib/currency'
 import { cn } from '@/lib/utils'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
@@ -99,7 +100,6 @@ import {
   tryParseVisualConfig,
 } from '@/features/pricing/lib/tier-expr'
 
-const PRICE_SUFFIX = '$/1M tokens'
 const CACHE_PRICE_VARS = BILLING_EXTRA_VARS.filter(
   (variable) => variable.group === 'cache'
 )
@@ -365,12 +365,7 @@ function DraftNumberInput({
 }: DraftNumberInputProps) {
   const [draft, setDraft] = useState(() => formatNumberDraft(value))
   const [focused, setFocused] = useState(false)
-
-  useEffect(() => {
-    if (!focused) {
-      setDraft(formatNumberDraft(value))
-    }
-  }, [focused, value])
+  const inputValue = focused ? draft : formatNumberDraft(value)
 
   const handleChange = (event: ChangeEvent<HTMLInputElement>) => {
     const nextDraft = event.target.value
@@ -406,7 +401,7 @@ function DraftNumberInput({
     <Input
       {...props}
       type='number'
-      value={draft}
+      value={inputValue}
       onChange={handleChange}
       onFocus={handleFocus}
       onMouseUp={handleMouseUp}
@@ -532,6 +527,14 @@ function PriceField({ label, hint, value, onChange }: PriceFieldProps) {
   )
 }
 
+function usdToDisplayPrice(value: number | undefined, rate: number) {
+  return unitCostToPrice(value ?? 0) * rate
+}
+
+function displayToUsdPrice(value: number, rate: number) {
+  return priceToUnitCost(value / rate)
+}
+
 // ---------------------------------------------------------------------------
 // Single tier card (visual editor)
 // ---------------------------------------------------------------------------
@@ -543,6 +546,7 @@ type VisualTierCardProps = {
   onChange: (next: VisualTier) => void
   onRemove: () => void
   onAddCondition: () => void
+  currencyRate: number
 }
 
 function VisualTierCard({
@@ -552,6 +556,7 @@ function VisualTierCard({
   onChange,
   onRemove,
   onAddCondition,
+  currencyRate,
 }: VisualTierCardProps) {
   const { t } = useTranslation()
   const cacheMode = getTierCacheMode(tier)
@@ -572,7 +577,23 @@ function VisualTierCard({
     })
   }
 
+  const inputUnitPrice = usdToDisplayPrice(tier.input_unit_cost, currencyRate)
+  const outputUnitPrice = usdToDisplayPrice(tier.output_unit_cost, currencyRate)
+  const hasMediaPricing = MEDIA_PRICE_VARS.some((variable) => {
+    const fieldKey = variable.tierField as keyof VisualTier
+    return unitCostToPrice((tier[fieldKey] as number | undefined) ?? 0) > 0
+  })
+  const [mediaOpen, setMediaOpen] = useState(false)
+  const [mediaCollapsed, setMediaCollapsed] = useState(false)
+  const mediaVisible = hasMediaPricing ? !mediaCollapsed : mediaOpen
+
   const handlePriceChange = (field: keyof VisualTier, value: number) => {
+    if (
+      value > 0 &&
+      MEDIA_PRICE_VARS.some((variable) => variable.tierField === field)
+    ) {
+      setMediaCollapsed(false)
+    }
     onChange({ ...tier, [field]: value })
   }
 
@@ -585,30 +606,23 @@ function VisualTierCard({
     })
   }
 
-  const inputUnitPrice = unitCostToPrice(tier.input_unit_cost)
-  const outputUnitPrice = unitCostToPrice(tier.output_unit_cost)
-  const hasMediaPricing = MEDIA_PRICE_VARS.some((variable) => {
-    const fieldKey = variable.tierField as keyof VisualTier
-    return unitCostToPrice((tier[fieldKey] as number | undefined) ?? 0) > 0
-  })
-  const [mediaOpen, setMediaOpen] = useState(hasMediaPricing)
-
-  useEffect(() => {
-    if (hasMediaPricing) setMediaOpen(true)
-  }, [hasMediaPricing])
-
   const renderPriceVariable = (
     variable: (typeof BILLING_EXTRA_VARS)[number]
   ) => {
     const fieldKey = variable.tierField as keyof VisualTier
-    const value = unitCostToPrice((tier[fieldKey] as number | undefined) ?? 0)
+    const value = usdToDisplayPrice(
+      tier[fieldKey] as number | undefined,
+      currencyRate
+    )
 
     return (
       <PriceField
         key={variable.key}
         label={t(variable.label)}
         value={value}
-        onChange={(next) => handlePriceChange(fieldKey, priceToUnitCost(next))}
+        onChange={(next) =>
+          handlePriceChange(fieldKey, displayToUsdPrice(next, currencyRate))
+        }
       />
     )
   }
@@ -677,9 +691,6 @@ function VisualTierCard({
       <div className='space-y-2'>
         <div className='flex items-center justify-between gap-3'>
           <Label className='text-sm font-semibold'>{t('Token prices')}</Label>
-          <span className='bg-muted text-muted-foreground rounded-md px-2 py-1 text-xs'>
-            {PRICE_SUFFIX}
-          </span>
         </div>
 
         <div className='space-y-3'>
@@ -688,14 +699,20 @@ function VisualTierCard({
               label={t('Input price')}
               value={inputUnitPrice}
               onChange={(value) =>
-                handlePriceChange('input_unit_cost', priceToUnitCost(value))
+                handlePriceChange(
+                  'input_unit_cost',
+                  displayToUsdPrice(value, currencyRate)
+                )
               }
             />
             <PriceField
               label={t('Output price')}
               value={outputUnitPrice}
               onChange={(value) =>
-                handlePriceChange('output_unit_cost', priceToUnitCost(value))
+                handlePriceChange(
+                  'output_unit_cost',
+                  displayToUsdPrice(value, currencyRate)
+                )
               }
             />
           </div>
@@ -743,17 +760,23 @@ function VisualTierCard({
           variant='ghost'
           size='sm'
           className='h-7 px-2 text-xs'
-          onClick={() => setMediaOpen((prev) => !prev)}
+          onClick={() => {
+            if (hasMediaPricing) {
+              setMediaCollapsed((prev) => !prev)
+            } else {
+              setMediaOpen((prev) => !prev)
+            }
+          }}
         >
           <ChevronDown
             className={cn(
               'mr-1 h-3 w-3 transition-transform',
-              mediaOpen && 'rotate-180'
+              mediaVisible && 'rotate-180'
             )}
           />
           {t('Media pricing')}
         </Button>
-        {mediaOpen && (
+        {mediaVisible && (
           <div className='flex flex-wrap gap-x-4 gap-y-2'>
             {MEDIA_PRICE_VARS.map(renderPriceVariable)}
           </div>
@@ -774,6 +797,11 @@ type VisualEditorProps = {
 
 function VisualEditor({ visualConfig, onChange }: VisualEditorProps) {
   const { t } = useTranslation()
+  const {
+    symbol: currencySymbol,
+    rate: currencyRate,
+    label: currencyLabel,
+  } = getPricingInputCurrency()
   const config = useMemo(
     () => normalizeVisualConfig(visualConfig),
     [visualConfig]
@@ -845,6 +873,12 @@ function VisualEditor({ visualConfig, onChange }: VisualEditorProps) {
           'Each tier supports up to 2 conditions. The last tier without conditions is the fallback.'
         )}
       </p>
+      <p className='text-muted-foreground text-xs'>
+        {t(
+          'Prices are entered in {{currency}} per 1M tokens and saved as USD using the current exchange rate.',
+          { currency: `${currencySymbol} ${currencyLabel}` }
+        )}
+      </p>
       {config.tiers.map((tier, index) => (
         <VisualTierCard
           key={index}
@@ -854,6 +888,7 @@ function VisualEditor({ visualConfig, onChange }: VisualEditorProps) {
           onChange={(next) => handleTierChange(index, next)}
           onRemove={() => handleRemoveTier(index)}
           onAddCondition={() => handleAddCondition(index)}
+          currencyRate={currencyRate}
         />
       ))}
       <Button
@@ -894,7 +929,8 @@ function RawExprEditor({ exprString, onChange }: RawExprEditorProps) {
             {t('Functions')}: <code>tier(name, value)</code>, <code>max</code>,{' '}
             <code>min</code>, <code>ceil</code>, <code>floor</code>,{' '}
             <code>abs</code>, <code>header(name)</code>,{' '}
-            <code>param(path)</code>, <code>has(source, text)</code>
+            <code>param(path)</code>, <code>has(source, text)</code>,{' '}
+            <code>cny(amount)</code>, <code>currency(amount, rate)</code>
           </div>
         </AlertDescription>
       </Alert>
@@ -1510,10 +1546,13 @@ Important: len is NOT affected by auto-exclusion. Tier conditions should use len
 - param(path) — reads a request body JSON path (gjson syntax)
 - has(source, substr) — substring check
 - hour(tz), minute(tz), weekday(tz), month(tz), day(tz) — time functions, tz is a timezone like "Asia/Shanghai"
+- cny(amount), rmb(amount) — converts CNY price per 1M tokens to USD using the current CNY exchange rate
+- currency(amount, rate) — converts a local-currency price to USD using 1 USD = rate local currency
 
 ### Price Coefficients
 
 Numbers in the expression are $/1M tokens prices. For example, p * 2.5 means input $2.50/1M tokens.
+For CNY prices, use cny(...). For example, p * cny(9) means ¥9/1M input tokens.
 
 ## Expression Examples
 
@@ -1639,6 +1678,20 @@ export const TieredPricingEditor = memo(function TieredPricingEditor({
   onRequestRuleExprChange,
 }: TieredPricingEditorProps) {
   const { t } = useTranslation()
+  const pricingCurrency = getPricingInputCurrency()
+  const priceFunctionOptions = useMemo(
+    () =>
+      pricingCurrency.rate > 0 && pricingCurrency.rate !== 1
+        ? {
+            name:
+              pricingCurrency.label === 'CNY'
+                ? ('cny' as const)
+                : ('currency' as const),
+            rate: pricingCurrency.rate,
+          }
+        : undefined,
+    [pricingCurrency.label, pricingCurrency.rate]
+  )
   const [editorMode, setEditorMode] = useState<EditorMode>('visual')
   const [visualConfig, setVisualConfig] = useState<VisualConfig | null>(() =>
     tryParseVisualConfig(currentExpr)
@@ -1682,11 +1735,11 @@ export const TieredPricingEditor = memo(function TieredPricingEditor({
 
   const effectiveExpr = useMemo(() => {
     if (editorMode === 'visual') {
-      return generateExprFromVisualConfig(visualConfig)
+      return generateExprFromVisualConfig(visualConfig, priceFunctionOptions)
     }
     const { billingExpr } = splitBillingExprAndRequestRules(rawExpr)
     return billingExpr
-  }, [editorMode, visualConfig, rawExpr])
+  }, [editorMode, visualConfig, rawExpr, priceFunctionOptions])
 
   useEffect(() => {
     if (effectiveExpr !== currentExpr) {
@@ -1736,13 +1789,22 @@ export const TieredPricingEditor = memo(function TieredPricingEditor({
         setRequestRuleGroups(parsedGroups || [])
         onRequestRuleExprChange(ruleStr)
       } else {
-        const expr = generateExprFromVisualConfig(visualConfig)
+        const expr = generateExprFromVisualConfig(
+          visualConfig,
+          priceFunctionOptions
+        )
         const ruleExpr = buildRequestRuleExpr(requestRuleGroups)
         setRawExpr(combineBillingExpr(expr, ruleExpr) || expr)
       }
       setEditorMode(next)
     },
-    [rawExpr, visualConfig, requestRuleGroups, onRequestRuleExprChange]
+    [
+      rawExpr,
+      visualConfig,
+      requestRuleGroups,
+      priceFunctionOptions,
+      onRequestRuleExprChange,
+    ]
   )
 
   const applyPreset = useCallback(
