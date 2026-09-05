@@ -241,6 +241,24 @@ func UpdateOption(c *gin.Context) {
 			})
 			return
 		}
+	case "ModelDiscount":
+		err = ratio_setting.CheckModelDiscount(option.Value.(string))
+		if err != nil {
+			c.JSON(http.StatusOK, gin.H{
+				"success": false,
+				"message": err.Error(),
+			})
+			return
+		}
+	case "UserModelRatio":
+		err = ratio_setting.CheckUserModelRatio(option.Value.(string))
+		if err != nil {
+			c.JSON(http.StatusOK, gin.H{
+				"success": false,
+				"message": err.Error(),
+			})
+			return
+		}
 	case "ImageRatio":
 		err = ratio_setting.UpdateImageRatioByJSONString(option.Value.(string))
 		if err != nil {

@@ -2538,6 +2538,7 @@
     "Modify existing subscription plan configuration": "修改现有订阅套餐的配置",
     "Module availability": "模块可用性",
     "MokaAI": "MokaAI",
+    "Mon-Fri": "周一至周五",
     "Monitor": "监控",
     "Monitor balance, usage, and request volume": "监控余额、用量和请求量",
     "Monitored relay requests": "已监控的中继请求",
@@ -3565,6 +3566,7 @@
     "Response": "响应",
     "Response Time": "响应时间",
     "Responses API Version": "响应 API 版本",
+    "Responses -> ChatCompletions Compatibility": "Responses → ChatCompletions 兼容",
     "Restore defaults": "恢复默认",
     "Restrict user model request frequency (may impact high concurrency performance)": "限制用户模型请求频率（可能会影响高并发性能）",
     "Retain last N days": "保留最近N天",
@@ -4711,6 +4713,7 @@
     "WeChat, phone, Telegram, or email": "微信、手机、Telegram 或邮箱",
     "Week": "本周",
     "Weekday": "星期",
+    "Weekends all day": "周末全天",
     "Weekly": "每周",
     "Weekly token usage by model across the past few weeks": "最近几周内各模型的每周 Token 用量",
     "Weekly token usage by model across the past year": "过去一年内按模型分布的每周 Token 使用量",
@@ -4796,6 +4799,11 @@
     "Zero-Barrier Payments": "零门槛支付",
     "Zhipu": "智谱",
     "Zhipu V4": "智谱 V4",
-    "Zoom": "缩放"
+    "Zoom": "缩放",
+    "Model discount": "模型折扣",
+    "Final price multiplier for this model. 0.8 means 20% off; leave empty to use default 1.": "该模型的最终价格倍率。0.8 表示 8 折；留空则使用默认值 1。",
+    "Add model rule": "添加模型规则",
+    "Duplicate model rule": "模型规则重复",
+    "Set a per-model discount ratio override for this user": "为该用户设置按模型的折扣倍率"
   }
 }

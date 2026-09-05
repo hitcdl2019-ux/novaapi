@@ -14,6 +14,7 @@ import (
 	"github.com/QuantumNous/new-api/constant"
 	"github.com/QuantumNous/new-api/dto"
 	"github.com/QuantumNous/new-api/i18n"
+	"github.com/QuantumNous/new-api/logger"
 	"github.com/QuantumNous/new-api/model"
 	relayconstant "github.com/QuantumNous/new-api/relay/constant"
 	"github.com/QuantumNous/new-api/service"
@@ -103,13 +104,12 @@ func Distribute() func(c *gin.Context) {
 
 				if preferredChannelID, found := service.GetPreferredChannelByAffinity(c, modelRequest.Model, usingGroup); found {
 					preferred, err := model.CacheGetChannel(preferredChannelID)
-					if err == nil && preferred != nil {
-						if preferred.Status != common.ChannelStatusEnabled {
-							if service.ShouldSkipRetryAfterChannelAffinityFailure(c) {
-								abortWithOpenAiMessage(c, http.StatusForbidden, i18n.T(c, i18n.MsgDistributorAffinityChannelDisabled))
-								return
-							}
-						} else if usingGroup == "auto" {
+					if err == nil && preferred != nil && preferred.Status != common.ChannelStatusEnabled {
+						// 渠道已被禁用属于确定性不可用，死守亲和无任何收益（prompt cache 折扣的前提是请求能成功），
+						// 无视 skip_retry_on_failure，跳过亲和回退到正常调度；本请求成功后 RecordChannelAffinity 会用新渠道覆写缓存，实现自愈
+						logger.LogInfo(c, fmt.Sprintf("渠道亲和性命中的渠道 #%d 已被禁用，跳过亲和，回退到正常调度", preferred.Id))
+					} else if err == nil && preferred != nil {
+						if usingGroup == "auto" {
 							userGroup := common.GetContextKeyString(c, constant.ContextKeyUserGroup)
 							autoGroups := service.GetUserAutoGroup(userGroup)
 							for _, g := range autoGroups {

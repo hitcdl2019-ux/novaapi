@@ -373,6 +373,54 @@ func UpdateUserVendorRatio(c *gin.Context) {
 	common.ApiSuccess(c, nil)
 }
 
+// GetUserModelRatio 返回指定用户的 (模型 → 倍率) 配置及可选模型列表。
+func GetUserModelRatio(c *gin.Context) {
+	id, err := strconv.Atoi(c.Param("id"))
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	ratios := ratio_setting.GetUserModelRatioForUser(id)
+	common.ApiSuccess(c, gin.H{
+		"ratios": ratios,
+		"models": model.GetPricing(),
+	})
+}
+
+type updateUserModelRatioRequest struct {
+	Ratios map[string]float64 `json:"ratios"`
+}
+
+// UpdateUserModelRatio 更新指定用户的 (模型 → 倍率) 配置。
+func UpdateUserModelRatio(c *gin.Context) {
+	id, err := strconv.Atoi(c.Param("id"))
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	var req updateUserModelRatioRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	for modelName, ratio := range req.Ratios {
+		if ratio < 0 {
+			common.ApiErrorMsg(c, "倍率不能小于 0: "+modelName)
+			return
+		}
+	}
+	merged, err := ratio_setting.MergeUserModelRatioJSON(id, req.Ratios)
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	if err := model.UpdateOption("UserModelRatio", merged); err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	common.ApiSuccess(c, nil)
+}
+
 func GetUserTokenCoefficient(c *gin.Context) {
 	id, err := strconv.Atoi(c.Param("id"))
 	if err != nil {

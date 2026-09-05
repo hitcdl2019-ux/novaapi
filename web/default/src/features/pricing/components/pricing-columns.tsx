@@ -33,7 +33,10 @@ import {
   getDynamicPricingSummary,
 } from '../lib/dynamic-price'
 import { parseTags } from '../lib/filters'
-import { isTokenBasedModel } from '../lib/model-helpers'
+import {
+  getModelDiscountLabel,
+  isTokenBasedModel,
+} from '../lib/model-helpers'
 import {
   formatPrice,
   formatRequestPrice,
@@ -97,7 +100,7 @@ function renderLimitedGroupBadges(
 export function usePricingColumns(
   options: PricingColumnsOptions = {}
 ): ColumnDef<PricingModel>[] {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
   const {
     tokenUnit = DEFAULT_TOKEN_UNIT,
     priceRate = 1,
@@ -120,6 +123,7 @@ export function usePricingColumns(
         const vendorIcon = model.vendor_icon
           ? getLobeIcon(model.vendor_icon, 14)
           : null
+        const discountLabel = getModelDiscountLabel(model, i18n.language)
 
         return (
           <div className='flex min-w-[200px] items-center gap-2'>
@@ -127,6 +131,11 @@ export function usePricingColumns(
             <span className='truncate font-mono text-sm font-medium'>
               {model.model_name}
             </span>
+            {discountLabel && (
+              <span className='text-emerald-600 shrink-0 text-xs font-medium'>
+                {discountLabel}
+              </span>
+            )}
           </div>
         )
       },

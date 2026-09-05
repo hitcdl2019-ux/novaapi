@@ -51,11 +51,13 @@ func applyTokenCoefficient(tokens int, coefficient float64) int {
 	return int(math.Round(float64(tokens) * coefficient))
 }
 
-// HandleGroupRatio checks for "auto_group" in the context and updates the group ratio and relayInfo.UsingGroup if present
+// HandleGroupRatio keeps the original single-final-ratio structure while resolving
+// the final multiplier as: user model discount > global model discount > default 1.
 func HandleGroupRatio(ctx *gin.Context, relayInfo *relaycommon.RelayInfo) types.GroupRatioInfo {
 	groupRatioInfo := types.GroupRatioInfo{
-		GroupRatio:        1.0, // default ratio
+		GroupRatio:        1.0,
 		GroupSpecialRatio: -1,
+		DiscountSource:    "default",
 	}
 
 	// check auto group
@@ -65,25 +67,12 @@ func HandleGroupRatio(ctx *gin.Context, relayInfo *relaycommon.RelayInfo) types.
 		relayInfo.UsingGroup = autoGroup.(string)
 	}
 
-	// check user group special ratio
-	userGroupRatio, ok := ratio_setting.GetGroupGroupRatio(relayInfo.UserGroup, relayInfo.UsingGroup)
-	if ok {
-		// user group special ratio
-		groupRatioInfo.GroupSpecialRatio = userGroupRatio
-		groupRatioInfo.GroupRatio = userGroupRatio
+	discount, source := ratio_setting.GetEffectiveModelDiscount(relayInfo.UserId, relayInfo.OriginModelName)
+	groupRatioInfo.GroupRatio = discount
+	groupRatioInfo.DiscountSource = source
+	if source == "user_model" {
+		groupRatioInfo.GroupSpecialRatio = discount
 		groupRatioInfo.HasSpecialRatio = true
-	} else {
-		// normal group ratio
-		groupRatioInfo.GroupRatio = ratio_setting.GetGroupRatio(relayInfo.UsingGroup)
-	}
-
-	// (用户 × 厂商) 覆盖：命中即替换最终分组倍率，优先级高于用户组×令牌组
-	if vendorId, ok := model.GetVendorIdByModel(relayInfo.OriginModelName); ok {
-		if uvRatio, ok := ratio_setting.GetUserVendorRatio(relayInfo.UserId, vendorId); ok {
-			groupRatioInfo.GroupRatio = uvRatio
-			groupRatioInfo.GroupSpecialRatio = uvRatio
-			groupRatioInfo.HasSpecialRatio = true
-		}
 	}
 
 	return groupRatioInfo

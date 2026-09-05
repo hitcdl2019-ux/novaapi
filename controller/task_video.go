@@ -168,17 +168,9 @@ func updateVideoSingleTask(ctx context.Context, adaptor channel.TaskAdaptor, cha
 							}
 						}
 						if group != "" {
-							groupRatio := ratio_setting.GetGroupRatio(group)
-							userGroupRatio, hasUserGroupRatio := ratio_setting.GetGroupGroupRatio(group, group)
+							finalGroupRatio, _ := ratio_setting.GetEffectiveModelDiscount(task.UserId, modelName)
 
-							var finalGroupRatio float64
-							if hasUserGroupRatio {
-								finalGroupRatio = userGroupRatio
-							} else {
-								finalGroupRatio = groupRatio
-							}
-
-							// 计算实际应扣费额度: totalTokens * modelRatio * groupRatio
+							// 计算实际应扣费额度: totalTokens * modelRatio * finalGroupRatio
 							actualQuota := int(float64(taskResult.TotalTokens) * modelRatio * finalGroupRatio)
 
 							// 计算差额

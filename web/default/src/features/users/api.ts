@@ -238,6 +238,37 @@ export async function updateUserVendorRatio(
   return res.data
 }
 
+// ============================================================================
+// User Model Ratio APIs (per-user × model discount ratio)
+// ============================================================================
+
+export interface ModelRatioOption {
+  model_name: string
+  vendor_id?: number
+  vendor_name?: string
+  icon?: string
+}
+
+export interface UserModelRatioData {
+  ratios: Record<string, number>
+  models: ModelRatioOption[]
+}
+
+export async function getUserModelRatio(
+  userId: number
+): Promise<ApiResponse<UserModelRatioData>> {
+  const res = await api.get(`/api/user/${userId}/model_ratio`)
+  return res.data
+}
+
+export async function updateUserModelRatio(
+  userId: number,
+  ratios: Record<string, number>
+): Promise<ApiResponse> {
+  const res = await api.put(`/api/user/${userId}/model_ratio`, { ratios })
+  return res.data
+}
+
 export async function getUserTokenCoefficient(
   userId: number
 ): Promise<ApiResponse<UserTokenCoefficientData>> {

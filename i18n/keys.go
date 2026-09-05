@@ -308,7 +308,6 @@ const (
 	MsgDistributorInvalidRequest          = "distributor.invalid_request"
 	MsgDistributorInvalidChannelId        = "distributor.invalid_channel_id"
 	MsgDistributorChannelDisabled         = "distributor.channel_disabled"
-	MsgDistributorAffinityChannelDisabled = "distributor.affinity_channel_disabled"
 	MsgDistributorTokenNoModelAccess      = "distributor.token_no_model_access"
 	MsgDistributorTokenModelForbidden     = "distributor.token_model_forbidden"
 	MsgDistributorModelNameRequired       = "distributor.model_name_required"

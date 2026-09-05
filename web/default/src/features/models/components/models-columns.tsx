@@ -72,7 +72,10 @@ function renderLimitedItems(
 /**
  * Generate models columns configuration
  */
-export function useModelsColumns(vendors: Vendor[] = []): ColumnDef<Model>[] {
+export function useModelsColumns(
+  vendors: Vendor[] = [],
+  modelDiscountMap: Record<string, number> = {}
+): ColumnDef<Model>[] {
   const { t } = useTranslation()
 
   // Get translated configs
@@ -171,6 +174,24 @@ export function useModelsColumns(vendors: Vendor[] = []): ColumnDef<Model>[] {
         )
       },
       minSize: 200,
+    },
+
+    // Model Discount column
+    {
+      id: 'model_discount',
+      meta: { label: t('Model discount') },
+      header: ({ column }) => (
+        <DataTableColumnHeader column={column} title={t('Model discount')} />
+      ),
+      cell: ({ row }) => {
+        const modelName = row.original.model_name
+        const discount = modelDiscountMap[modelName] ?? 1
+        const displayValue = discount === 1 ? '1.0' : String(discount)
+
+        return <span className='font-mono text-xs'>{displayValue}</span>
+      },
+      size: 100,
+      enableSorting: false,
     },
 
     // Name Rule column

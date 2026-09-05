@@ -325,7 +325,9 @@ func shouldRetry(c *gin.Context, openaiErr *types.NewAPIError, retryTimes int) b
 	if openaiErr == nil {
 		return false
 	}
-	if service.ShouldSkipRetryAfterChannelAffinityFailure(c) {
+	// 429 属于可恢复的限流错误：亲和会话若 fail-fast 钉死在限流渠道上，缓存只会持续 miss，
+	// 因此对 429 无视 skip_retry_on_failure，允许切换渠道重试；其余瞬时错误仍按规则 fail-fast
+	if service.ShouldSkipRetryAfterChannelAffinityFailure(c) && openaiErr.StatusCode != http.StatusTooManyRequests {
 		return false
 	}
 	if types.IsChannelError(openaiErr) {
@@ -582,12 +584,14 @@ func RelayTask(c *gin.Context) {
 		task.PrivateData.SubscriptionId = relayInfo.SubscriptionId
 		task.PrivateData.TokenId = relayInfo.TokenId
 		task.PrivateData.BillingContext = &model.TaskBillingContext{
-			ModelPrice:      relayInfo.PriceData.ModelPrice,
-			GroupRatio:      relayInfo.PriceData.GroupRatioInfo.GroupRatio,
-			ModelRatio:      relayInfo.PriceData.ModelRatio,
-			OtherRatios:     relayInfo.PriceData.OtherRatios,
-			OriginModelName: relayInfo.OriginModelName,
-			PerCallBilling:  common.StringsContains(constant.TaskPricePatches, relayInfo.OriginModelName) || relayInfo.PriceData.UsePrice,
+			ModelPrice:                       relayInfo.PriceData.ModelPrice,
+			GroupRatio:                       relayInfo.PriceData.GroupRatioInfo.GroupRatio,
+			ModelRatio:                       relayInfo.PriceData.ModelRatio,
+			OtherRatios:                      relayInfo.PriceData.OtherRatios,
+			OriginModelName:                  relayInfo.OriginModelName,
+			PerCallBilling:                   common.StringsContains(constant.TaskPricePatches, relayInfo.OriginModelName) || relayInfo.PriceData.UsePrice,
+			VideoTierPricing:                 relayInfo.PriceData.TaskVideoTierPricing,
+			AllowPerCallCompletionAdjustment: relayInfo.PriceData.AllowPerCallCompletionAdjustment,
 		}
 		task.Quota = result.Quota
 		task.Data = result.TaskData
@@ -614,7 +618,8 @@ func shouldRetryTaskRelay(c *gin.Context, channelId int, taskErr *dto.TaskError,
 	if taskErr == nil {
 		return false
 	}
-	if service.ShouldSkipRetryAfterChannelAffinityFailure(c) {
+	// 与 shouldRetry 保持一致：亲和 fail-fast 对 429 例外，允许切换渠道重试
+	if service.ShouldSkipRetryAfterChannelAffinityFailure(c) && taskErr.StatusCode != http.StatusTooManyRequests {
 		return false
 	}
 	if retryTimes <= 0 {

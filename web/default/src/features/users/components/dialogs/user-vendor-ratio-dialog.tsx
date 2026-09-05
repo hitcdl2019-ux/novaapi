@@ -40,9 +40,9 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import {
-  getUserVendorRatio,
-  updateUserVendorRatio,
-  type VendorOption,
+  getUserModelRatio,
+  updateUserModelRatio,
+  type ModelRatioOption,
 } from '../../api'
 
 interface Props {
@@ -53,13 +53,13 @@ interface Props {
 }
 
 interface RatioRow {
-  vendorId: string
+  modelName: string
   ratio: string
 }
 
 export function UserVendorRatioDialog(props: Props) {
   const { t } = useTranslation()
-  const [vendors, setVendors] = useState<VendorOption[]>([])
+  const [models, setModels] = useState<ModelRatioOption[]>([])
   const [rows, setRows] = useState<RatioRow[]>([])
   const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -68,11 +68,11 @@ export function UserVendorRatioDialog(props: Props) {
     if (!props.userId) return
     setLoading(true)
     try {
-      const res = await getUserVendorRatio(props.userId)
+      const res = await getUserModelRatio(props.userId)
       if (res.success && res.data) {
-        setVendors(res.data.vendors || [])
+        setModels(res.data.models || [])
         const existing = Object.entries(res.data.ratios || {}).map(
-          ([vendorId, ratio]) => ({ vendorId, ratio: String(ratio) })
+          ([modelName, ratio]) => ({ modelName, ratio: String(ratio) })
         )
         setRows(existing)
       }
@@ -88,14 +88,14 @@ export function UserVendorRatioDialog(props: Props) {
       fetchData()
     } else {
       setRows([])
-      setVendors([])
+      setModels([])
     }
   }, [props.open, props.userId, fetchData])
 
-  const usedVendorIds = new Set(rows.map((r) => r.vendorId).filter(Boolean))
+  const usedModelNames = new Set(rows.map((r) => r.modelName).filter(Boolean))
 
   const addRow = () => {
-    setRows((prev) => [...prev, { vendorId: '', ratio: '' }])
+    setRows((prev) => [...prev, { modelName: '', ratio: '' }])
   }
 
   const removeRow = (index: number) => {
@@ -112,21 +112,21 @@ export function UserVendorRatioDialog(props: Props) {
     if (!props.userId) return
     const ratios: Record<string, number> = {}
     for (const row of rows) {
-      if (!row.vendorId || row.ratio.trim() === '') continue
+      if (!row.modelName || row.ratio.trim() === '') continue
       const value = Number(row.ratio)
       if (Number.isNaN(value) || value < 0) {
         toast.error(t('Ratio must be a number not less than 0'))
         return
       }
-      if (ratios[row.vendorId] !== undefined) {
-        toast.error(t('Duplicate vendor rule'))
+      if (ratios[row.modelName] !== undefined) {
+        toast.error(t('Duplicate model rule'))
         return
       }
-      ratios[row.vendorId] = value
+      ratios[row.modelName] = value
     }
     setSaving(true)
     try {
-      const res = await updateUserVendorRatio(props.userId, ratios)
+      const res = await updateUserModelRatio(props.userId, ratios)
       if (res.success) {
         toast.success(t('Saved successfully'))
         props.onOpenChange(false)
@@ -149,7 +149,7 @@ export function UserVendorRatioDialog(props: Props) {
             {t('Discount Ratio')}
           </DialogTitle>
           <DialogDescription>
-            {t('Set a per-vendor group ratio override for this user')}
+            {t('Set a per-model discount ratio override for this user')}
             {props.username ? ` — ${props.username}` : ''}
           </DialogDescription>
         </DialogHeader>
@@ -170,30 +170,30 @@ export function UserVendorRatioDialog(props: Props) {
                   {rows.map((row, index) => (
                     <div key={index} className='flex items-center gap-2'>
                       <Select
-                        items={vendors.map((v) => ({
-                          value: String(v.id),
-                          label: v.name,
+                        items={models.map((m) => ({
+                          value: m.model_name,
+                          label: m.model_name,
                         }))}
-                        value={row.vendorId}
+                        value={row.modelName}
                         onValueChange={(v) =>
-                          v !== null && updateRow(index, { vendorId: String(v) })
+                          v !== null && updateRow(index, { modelName: String(v) })
                         }
                       >
                         <SelectTrigger className='flex-1'>
-                          <SelectValue placeholder={t('Vendor')} />
+                          <SelectValue placeholder={t('Model')} />
                         </SelectTrigger>
                         <SelectContent alignItemWithTrigger={false}>
                           <SelectGroup>
-                            {vendors.map((v) => (
+                            {models.map((m) => (
                               <SelectItem
-                                key={v.id}
-                                value={String(v.id)}
+                                key={m.model_name}
+                                value={m.model_name}
                                 disabled={
-                                  usedVendorIds.has(String(v.id)) &&
-                                  row.vendorId !== String(v.id)
+                                  usedModelNames.has(m.model_name) &&
+                                  row.modelName !== m.model_name
                                 }
                               >
-                                {v.name}
+                                {m.model_name}
                               </SelectItem>
                             ))}
                           </SelectGroup>
@@ -228,10 +228,10 @@ export function UserVendorRatioDialog(props: Props) {
               variant='outline'
               size='sm'
               onClick={addRow}
-              disabled={rows.length >= vendors.length}
+              disabled={rows.length >= models.length}
             >
               <Plus className='mr-1 h-4 w-4' />
-              {t('Add vendor rule')}
+              {t('Add model rule')}
             </Button>
           </div>
         )}

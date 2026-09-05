@@ -22,6 +22,7 @@ import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import { useCountdown } from '@/hooks/use-countdown'
 import { Button } from '@/components/ui/button'
+import { Turnstile } from '@/components/turnstile'
 import {
   Dialog,
   DialogContent,
@@ -33,6 +34,7 @@ import {
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { sendEmailVerification, bindEmail } from '../../api'
+import { useTurnstile } from '@/features/auth/hooks/use-turnstile'
 
 // ============================================================================
 // Email Bind Dialog Component
@@ -64,16 +66,24 @@ export function EmailBindDialog({
   } = useCountdown({
     initialSeconds: 60,
   })
+  const {
+    isTurnstileEnabled,
+    turnstileSiteKey,
+    turnstileToken,
+    setTurnstileToken,
+    validateTurnstile,
+  } = useTurnstile()
 
   const handleSendCode = async () => {
     if (!email || !email.includes('@')) {
       toast.error(t('Please enter a valid email address'))
       return
     }
+    if (!validateTurnstile()) return
 
     try {
       setSendingCode(true)
-      const response = await sendEmailVerification(email)
+      const response = await sendEmailVerification(email, turnstileToken)
 
       if (response.success) {
         toast.success(t('Verification code sent! Please check your email.'))
@@ -105,6 +115,7 @@ export function EmailBindDialog({
         // Reset form
         setEmail('')
         setCode('')
+        setTurnstileToken('')
         resetCountdown()
       } else {
         toast.error(response.message || t('Failed to bind email'))
@@ -123,6 +134,7 @@ export function EmailBindDialog({
         // Reset form when closing
         setEmail('')
         setCode('')
+        setTurnstileToken('')
         resetCountdown()
       }
     }
@@ -180,6 +192,16 @@ export function EmailBindDialog({
               </Button>
             </div>
           </div>
+
+          {isTurnstileEnabled && (
+            <div className='flex justify-center'>
+              <Turnstile
+                siteKey={turnstileSiteKey}
+                onVerify={setTurnstileToken}
+                onExpire={() => setTurnstileToken('')}
+              />
+            </div>
+          )}
         </div>
 
         <DialogFooter>

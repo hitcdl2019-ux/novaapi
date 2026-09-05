@@ -6,6 +6,7 @@ import (
 	"io"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/QuantumNous/new-api/common"
@@ -17,6 +18,8 @@ import (
 	"github.com/QuantumNous/new-api/relay/channel/task/taskcommon"
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
 	"github.com/QuantumNous/new-api/service"
+	"github.com/QuantumNous/new-api/setting/operation_setting"
+	"github.com/QuantumNous/new-api/types"
 
 	"github.com/gin-gonic/gin"
 	"github.com/pkg/errors"
@@ -132,7 +135,9 @@ func (a *TaskAdaptor) BuildRequestHeader(_ *gin.Context, req *http.Request, _ *r
 	return nil
 }
 
-// EstimateBilling 检测请求 metadata 中是否包含视频输入，返回视频折扣 OtherRatio。
+// EstimateBilling keeps legacy video-input ratio support. Seedance pricing is
+// configured per model in the system billing expression and evaluated by the
+// shared billing pipeline.
 func (a *TaskAdaptor) EstimateBilling(c *gin.Context, info *relaycommon.RelayInfo) map[string]float64 {
 	req, err := relaycommon.GetTaskRequest(c)
 	if err != nil {
@@ -173,6 +178,186 @@ func hasVideoInMetadata(metadata map[string]interface{}) bool {
 		}
 	}
 	return false
+}
+
+func resolveSeedanceVideoTierPricing(req relaycommon.TaskSubmitReq, info *relaycommon.RelayInfo) *types.TaskVideoTierPricing {
+	prices, ok := selectSeedanceVideoTierPrices(info.ChannelOtherSettings.SeedanceVideoTierPricesCNY, info.OriginModelName, info.UpstreamModelName)
+	// Seedance has a fixed provider price table. Use it when no channel-specific
+	// override is configured so requests are billed according to the published
+	// rates (CNY per 1M tokens).
+	if !ok && isSeedanceModel(info.OriginModelName, info.UpstreamModelName) {
+		prices, ok = defaultSeedanceVideoTierPrices(), true
+	}
+	if !ok {
+		return nil
+	}
+	resolution := normalizeSeedanceResolution(metadataString(req.Metadata, "resolution"))
+	if resolution == "" {
+		resolution = normalizeSeedanceResolution(req.Size)
+	}
+	if resolution == "" {
+		return nil
+	}
+	hasVideoInput := hasVideoInMetadata(req.Metadata)
+	tier := seedanceVideoTierKey(resolution, hasVideoInput)
+	priceCNY := seedanceTierPrice(prices, tier)
+	if priceCNY <= 0 || operation_setting.USDExchangeRate <= 0 {
+		return nil
+	}
+	return &types.TaskVideoTierPricing{
+		SelectedPriceUSDPer1M: priceCNY / operation_setting.USDExchangeRate,
+		SelectedPriceCNYPer1M: priceCNY,
+		CNYExchangeRate:       operation_setting.USDExchangeRate,
+		Resolution:            resolution,
+		HasVideoInput:         hasVideoInput,
+		Tier:                  tier,
+	}
+}
+
+func isSeedanceModel(modelNames ...string) bool {
+	for _, name := range modelNames {
+		if strings.Contains(strings.ToLower(name), "seedance") {
+			return true
+		}
+	}
+	return false
+}
+
+func defaultSeedanceVideoTierPrices() dto.SeedanceVideoTierPrices {
+	return dto.SeedanceVideoTierPrices{
+		P720WithVideoInput:     42,
+		P720WithoutVideoInput:  70,
+		P1080WithVideoInput:    54,
+		P1080WithoutVideoInput: 90,
+	}
+}
+
+func selectSeedanceVideoTierPrices(config map[string]interface{}, modelNames ...string) (dto.SeedanceVideoTierPrices, bool) {
+	if len(config) == 0 {
+		return dto.SeedanceVideoTierPrices{}, false
+	}
+	if prices, ok := seedanceVideoTierPricesFromValue(config); ok {
+		return prices, true
+	}
+	for _, modelName := range modelNames {
+		if modelName == "" {
+			continue
+		}
+		if prices, ok := seedanceVideoTierPricesFromValue(config[modelName]); ok {
+			return prices, true
+		}
+		for key, value := range config {
+			if strings.EqualFold(key, modelName) {
+				return seedanceVideoTierPricesFromValue(value)
+			}
+		}
+	}
+	for _, key := range []string{"default", "*"} {
+		if prices, ok := seedanceVideoTierPricesFromValue(config[key]); ok {
+			return prices, true
+		}
+	}
+	return dto.SeedanceVideoTierPrices{}, false
+}
+
+func seedanceVideoTierPricesFromValue(value interface{}) (dto.SeedanceVideoTierPrices, bool) {
+	switch v := value.(type) {
+	case nil:
+		return dto.SeedanceVideoTierPrices{}, false
+	case dto.SeedanceVideoTierPrices:
+		return v, seedanceVideoTierPricesConfigured(v)
+	case map[string]interface{}:
+		prices := dto.SeedanceVideoTierPrices{
+			P720WithVideoInput:     interfaceToFloat64(v["720p_with_video_input"]),
+			P720WithoutVideoInput:  interfaceToFloat64(v["720p_without_video_input"]),
+			P1080WithVideoInput:    interfaceToFloat64(v["1080p_with_video_input"]),
+			P1080WithoutVideoInput: interfaceToFloat64(v["1080p_without_video_input"]),
+		}
+		return prices, seedanceVideoTierPricesConfigured(prices)
+	case map[string]float64:
+		prices := dto.SeedanceVideoTierPrices{
+			P720WithVideoInput:     v["720p_with_video_input"],
+			P720WithoutVideoInput:  v["720p_without_video_input"],
+			P1080WithVideoInput:    v["1080p_with_video_input"],
+			P1080WithoutVideoInput: v["1080p_without_video_input"],
+		}
+		return prices, seedanceVideoTierPricesConfigured(prices)
+	default:
+		return dto.SeedanceVideoTierPrices{}, false
+	}
+}
+
+func seedanceVideoTierPricesConfigured(prices dto.SeedanceVideoTierPrices) bool {
+	return prices.P720WithVideoInput > 0 ||
+		prices.P720WithoutVideoInput > 0 ||
+		prices.P1080WithVideoInput > 0 ||
+		prices.P1080WithoutVideoInput > 0
+}
+
+func interfaceToFloat64(value interface{}) float64 {
+	switch v := value.(type) {
+	case float64:
+		return v
+	case float32:
+		return float64(v)
+	case int:
+		return float64(v)
+	case int64:
+		return float64(v)
+	case int32:
+		return float64(v)
+	case string:
+		f, _ := strconv.ParseFloat(strings.TrimSpace(v), 64)
+		return f
+	default:
+		return 0
+	}
+}
+
+func metadataString(metadata map[string]interface{}, key string) string {
+	if metadata == nil {
+		return ""
+	}
+	if value, ok := metadata[key].(string); ok {
+		return value
+	}
+	return ""
+}
+
+func normalizeSeedanceResolution(resolution string) string {
+	resolution = strings.ToLower(strings.TrimSpace(resolution))
+	switch {
+	case strings.Contains(resolution, "4k") || strings.Contains(resolution, "2160"):
+		return "4k"
+	case strings.Contains(resolution, "720"):
+		return "720p"
+	case strings.Contains(resolution, "1080"):
+		return "1080p"
+	default:
+		return ""
+	}
+}
+
+func seedanceVideoTierKey(resolution string, hasVideoInput bool) string {
+	if hasVideoInput {
+		return resolution + "_with_video_input"
+	}
+	return resolution + "_without_video_input"
+}
+
+func seedanceTierPrice(prices dto.SeedanceVideoTierPrices, tier string) float64 {
+	switch tier {
+	case "720p_with_video_input":
+		return prices.P720WithVideoInput
+	case "720p_without_video_input":
+		return prices.P720WithoutVideoInput
+	case "1080p_with_video_input":
+		return prices.P1080WithVideoInput
+	case "1080p_without_video_input":
+		return prices.P1080WithoutVideoInput
+	default:
+		return 0
+	}
 }
 
 // BuildRequestBody converts request into Doubao specific format.
@@ -339,6 +524,24 @@ func (a *TaskAdaptor) ParseTaskResult(respBody []byte) (*relaycommon.TaskInfo, e
 	}
 
 	return &taskResult, nil
+}
+
+func (a *TaskAdaptor) AdjustBillingOnComplete(task *model.Task, taskResult *relaycommon.TaskInfo) int {
+	if task == nil || taskResult == nil || taskResult.TotalTokens <= 0 {
+		return 0
+	}
+	if taskResult.Status != string(model.TaskStatusSuccess) {
+		return 0
+	}
+	billingContext := task.PrivateData.BillingContext
+	if billingContext == nil || billingContext.VideoTierPricing == nil {
+		return 0
+	}
+	priceUSDPer1M := billingContext.VideoTierPricing.SelectedPriceUSDPer1M
+	if priceUSDPer1M <= 0 || billingContext.GroupRatio <= 0 {
+		return 0
+	}
+	return int(float64(taskResult.TotalTokens) * priceUSDPer1M / 1_000_000 * common.QuotaPerUnit * billingContext.GroupRatio)
 }
 
 func (a *TaskAdaptor) ConvertToOpenAIVideo(originTask *model.Task) ([]byte, error) {

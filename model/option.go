@@ -139,11 +139,13 @@ func InitOptionMap() {
 	common.OptionMap["ModelRequestRateLimitGroup"] = setting.ModelRequestRateLimitGroup2JSONString()
 	common.OptionMap["ModelRatio"] = ratio_setting.ModelRatio2JSONString()
 	common.OptionMap["ModelPrice"] = ratio_setting.ModelPrice2JSONString()
+	common.OptionMap["ModelDiscount"] = ratio_setting.ModelDiscount2JSONString()
 	common.OptionMap["CacheRatio"] = ratio_setting.CacheRatio2JSONString()
 	common.OptionMap["CreateCacheRatio"] = ratio_setting.CreateCacheRatio2JSONString()
 	common.OptionMap["GroupRatio"] = ratio_setting.GroupRatio2JSONString()
 	common.OptionMap["GroupGroupRatio"] = ratio_setting.GroupGroupRatio2JSONString()
 	common.OptionMap["UserVendorRatio"] = ratio_setting.UserVendorRatio2JSONString()
+	common.OptionMap["UserModelRatio"] = ratio_setting.UserModelRatio2JSONString()
 	common.OptionMap["UserUsableGroups"] = setting.UserUsableGroups2JSONString()
 	common.OptionMap["CompletionRatio"] = ratio_setting.CompletionRatio2JSONString()
 	common.OptionMap["ImageRatio"] = ratio_setting.ImageRatio2JSONString()
@@ -531,6 +533,8 @@ func updateOptionMap(key string, value string) (err error) {
 		err = ratio_setting.UpdateGroupGroupRatioByJSONString(value)
 	case "UserVendorRatio":
 		err = ratio_setting.UpdateUserVendorRatioByJSONString(value)
+	case "UserModelRatio":
+		err = ratio_setting.UpdateUserModelRatioByJSONString(value)
 	case "UserUsableGroups":
 		err = setting.UpdateUserUsableGroupsByJSONString(value)
 	case "CompletionRatio":
@@ -540,6 +544,11 @@ func updateOptionMap(key string, value string) (err error) {
 		}
 	case "ModelPrice":
 		err = ratio_setting.UpdateModelPriceByJSONString(value)
+		if err == nil {
+			InvalidatePricingCache()
+		}
+	case "ModelDiscount":
+		err = ratio_setting.UpdateModelDiscountByJSONString(value)
 		if err == nil {
 			InvalidatePricingCache()
 		}

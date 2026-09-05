@@ -2538,6 +2538,7 @@
     "Modify existing subscription plan configuration": "Modify existing subscription plan configuration",
     "Module availability": "Module availability",
     "MokaAI": "MokaAI",
+    "Mon-Fri": "Mon-Fri",
     "Monitor": "Monitor",
     "Monitor balance, usage, and request volume": "Monitor balance, usage, and request volume",
     "Monitored relay requests": "Monitored relay requests",
@@ -3565,6 +3566,7 @@
     "Response": "Response",
     "Response Time": "Response Time",
     "Responses API Version": "Responses API Version",
+    "Responses -> ChatCompletions Compatibility": "Responses -> ChatCompletions Compatibility",
     "Restore defaults": "Restore defaults",
     "Restrict user model request frequency (may impact high concurrency performance)": "Restrict user model request frequency (may impact high concurrency performance)",
     "Retain last N days": "Retain last N days",
@@ -4711,6 +4713,7 @@
     "WeChat, phone, Telegram, or email": "WeChat, phone, Telegram, or email",
     "Week": "Week",
     "Weekday": "Weekday",
+    "Weekends all day": "Weekends all day",
     "Weekly": "Weekly",
     "Weekly token usage by model across the past few weeks": "Weekly token usage by model across the past few weeks",
     "Weekly token usage by model across the past year": "Weekly token usage by model across the past year",
@@ -4796,6 +4799,11 @@
     "Zero-Barrier Payments": "Zero-Barrier Payments",
     "Zhipu": "Zhipu",
     "Zhipu V4": "Zhipu V4",
-    "Zoom": "Zoom"
+    "Zoom": "Zoom",
+    "Model discount": "Model discount",
+    "Final price multiplier for this model. 0.8 means 20% off; leave empty to use default 1.": "Final price multiplier for this model. 0.8 means 20% off; leave empty to use default 1.",
+    "Add model rule": "Add model rule",
+    "Duplicate model rule": "Duplicate model rule",
+    "Set a per-model discount ratio override for this user": "Set a per-model discount ratio override for this user"
   }
 }

@@ -34,6 +34,7 @@ type DynamicPriceOptions = {
   priceRate?: number
   usdExchangeRate?: number
   groupRatioMultiplier?: number
+  discountMultiplier?: number
 }
 
 export type DynamicPriceEntry = {
@@ -98,10 +99,11 @@ export function formatDynamicUnitPrice(
   options: DynamicPriceOptions
 ): string {
   const groupRatio = options.groupRatioMultiplier ?? 1
+  const discountMultiplier = options.discountMultiplier ?? 1
   const priceRate = options.priceRate ?? 1
   const usdExchangeRate = options.usdExchangeRate ?? 1
   const priceUSD =
-    (valuePerMillionTokens * groupRatio) /
+    (valuePerMillionTokens * groupRatio * discountMultiplier) /
     TOKEN_UNIT_DIVISORS[options.tokenUnit]
   const displayPrice = applyRechargeRate(
     priceUSD,
@@ -177,7 +179,7 @@ function getDynamicPriceRangeEntries(
 
     const values = tiers
       .map((tier) => Number(tier[variable.field as string]))
-      .filter((value) => Number.isFinite(value) && value >= 0)
+      .filter((value) => Number.isFinite(value) && value > 0)
 
     if (values.length === 0) return []
 
@@ -222,6 +224,10 @@ export function getDynamicPricingSummary(
   if (!isDynamicPricingModel(model)) return null
 
   const tiers = getDynamicPricingTiers(model)
+  const seedanceMatches = [...(model.billing_expr || '').matchAll(/tier\("([^"]+)",\s*c\s*\*\s*cny\(([-+]?\d*\.?\d+)\)\)/g)]
+  if (seedanceMatches.length) {
+    tiers.splice(0, tiers.length, ...seedanceMatches.map((m) => ({ label: m[1], output_unit_cost: Number(m[2]), conditions: [] } as ParsedTier)))
+  }
   const tier = tiers[0] || null
   const entries = getDynamicPriceRangeEntries(tiers, options)
   const rawExpression = model.billing_expr || ''

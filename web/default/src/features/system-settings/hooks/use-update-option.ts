@@ -41,6 +41,7 @@ const STATUS_RELATED_KEYS = [
 const MODEL_PRICING_RELATED_KEYS = [
   'ModelPrice',
   'ModelRatio',
+  'ModelDiscount',
   'CompletionRatio',
   'CacheRatio',
   'CreateCacheRatio',

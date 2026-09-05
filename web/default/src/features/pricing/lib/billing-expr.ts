@@ -319,6 +319,15 @@ export function parseTiersFromExpr(exprStr: string): ParsedTier[] {
       tier.conditions = conditions
       tiers.push(tier)
     }
+    // Seedance/request-specific tiers use cny() coefficients, which are not
+    // part of the generic token-expression parser. Expose them as output
+    // prices so model cards still show the configured amounts.
+    const seedanceRe = /tier\("([^"]+)",\s*c\s*\*\s*cny\(([-+]?\d*\.?\d+)\)\)/g
+    while ((m = seedanceRe.exec(body)) !== null) {
+      if (!tiers.some((tier) => tier.label === m[1])) {
+        tiers.push({ label: m[1], output_unit_cost: Number(m[2]), conditions: [] } as ParsedTier)
+      }
+    }
     return tiers
   } catch {
     return []

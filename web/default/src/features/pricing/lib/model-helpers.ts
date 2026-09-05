@@ -52,3 +52,27 @@ export function replaceModelInPath(path: string, modelName: string): string {
 export function isTokenBasedModel(model: PricingModel): boolean {
   return model.quota_type === QUOTA_TYPE_VALUES.TOKEN
 }
+
+export function hasModelDiscount(model: PricingModel): boolean {
+  const discount = model.model_discount
+  return typeof discount === 'number' && discount >= 0 && discount < 1
+}
+
+export function getModelDiscountMultiplier(model: PricingModel): number {
+  return hasModelDiscount(model) ? Number(model.model_discount) : 1
+}
+
+export function getModelDiscountLabel(
+  model: PricingModel,
+  language?: string
+): string | null {
+  if (!hasModelDiscount(model)) return null
+
+  const discount = Number(model.model_discount)
+  if (language?.toLowerCase().startsWith('zh')) {
+    const value = discount * 10
+    return `${Number.isInteger(value) ? value : value.toFixed(1)}折`
+  }
+
+  return `${Math.round((1 - discount) * 100)}% off`
+}

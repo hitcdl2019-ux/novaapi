@@ -31,8 +31,14 @@ import {
   type DynamicPricingSummary,
 } from '../lib/dynamic-price'
 import { parseTags } from '../lib/filters'
-import { isTokenBasedModel } from '../lib/model-helpers'
+import {
+  getModelDiscountLabel,
+  getModelDiscountMultiplier,
+  hasModelDiscount,
+  isTokenBasedModel,
+} from '../lib/model-helpers'
 import { formatPrice, formatRequestPrice } from '../lib/price'
+import { formatBillingCurrencyFromUSD } from '@/lib/currency'
 import type { PricingModel, TokenUnit, PriceType } from '../types'
 import { ModelPerfBadge, type ModelPerfBadgeData } from './model-perf-badge'
 
@@ -102,12 +108,31 @@ function getPeakHourRanges(expression: string): string[] {
   return ranges
 }
 
+function isWeekendAllDayOffPeak(expression: string): boolean {
+  const peakTierIndex = expression.search(/tier\(\s*["']peak["']/i)
+  if (peakTierIndex <= 0) return false
+
+  const conditionExpr = expression.slice(0, peakTierIndex)
+  if (!/weekday\s*\(/i.test(conditionExpr)) return false
+
+  const normalized = conditionExpr.replace(/\s+/g, '')
+  const patterns = [
+    /!\(weekday\(["'][^"']+["']\)==0\|\|weekday\(["'][^"']+["']\)==6\)/i,
+    /weekday\(["'][^"']+["']\)!=0&&weekday\(["'][^"']+["']\)!=6/i,
+    /weekday\(["'][^"']+["']\)>=1&&weekday\(["'][^"']+["']\)<=5/i,
+  ]
+
+  return patterns.some((pattern) => pattern.test(normalized))
+}
+
 function getPeakValleyPriceRows(
   summary: DynamicPricingSummary,
-  options: Parameters<typeof getDynamicPriceEntries>[1]
+  options: Parameters<typeof getDynamicPriceEntries>[1],
+  t: (key: string) => string
 ): PeakValleyPriceRow[] {
   const peakRanges = getPeakHourRanges(summary.rawExpression)
   if (peakRanges.length === 0) return []
+  const weekendAllDayOffPeak = isWeekendAllDayOffPeak(summary.rawExpression)
 
   const peakTier = summary.tiers.find((tier) => isPeakTier(tier.label))
   const offPeakTier =
@@ -120,20 +145,24 @@ function getPeakValleyPriceRows(
     {
       key: 'peak',
       labelKey: 'Peak price',
-      timeLabel: peakRanges.join(', '),
+      timeLabel: weekendAllDayOffPeak
+        ? `${t('Mon-Fri')} ${peakRanges.join(', ')}`
+        : peakRanges.join(', '),
       entries: getDynamicPriceEntries(peakTier, options),
     },
     {
       key: 'offPeak',
       labelKey: 'Off-peak price',
-      timeLabel: 'Other times',
+      timeLabel: weekendAllDayOffPeak
+        ? `${t('Weekends all day')} · ${t('Other times')}`
+        : t('Other times'),
       entries: getDynamicPriceEntries(offPeakTier, options),
     },
   ].filter((row) => row.entries.length > 0)
 }
 
 export const ModelCard = memo(function ModelCard(props: ModelCardProps) {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
   const { copyToClipboard } = useCopyToClipboard()
   const tokenUnit = props.tokenUnit ?? DEFAULT_TOKEN_UNIT
   const priceRate = props.priceRate ?? 1
@@ -150,6 +179,9 @@ export const ModelCard = memo(function ModelCard(props: ModelCardProps) {
   const isDynamicPricing =
     props.model.billing_mode === 'tiered_expr' &&
     Boolean(props.model.billing_expr)
+  const hasDiscount = hasModelDiscount(props.model)
+  const discountMultiplier = getModelDiscountMultiplier(props.model)
+  const discountLabel = getModelDiscountLabel(props.model, i18n.language)
   // Show every billing dimension that has been configured for the model.
   // input/output are always present; the rest appear only when their ratio is set.
   const tokenPriceEntries: {
@@ -185,14 +217,60 @@ export const ModelCard = memo(function ModelCard(props: ModelCardProps) {
     priceRate,
     usdExchangeRate,
     groupRatioMultiplier: getDynamicDisplayGroupRatio(props.model),
+    discountMultiplier: 1,
   }
+  const discountedDynamicPriceOptions = hasDiscount
+    ? { ...dynamicPriceOptions, discountMultiplier }
+    : dynamicPriceOptions
   const dynamicSummary = isDynamicPricing
     ? getDynamicPricingSummary(props.model, dynamicPriceOptions)
     : null
+  const hasVideoTiers = Boolean(
+    dynamicSummary && /tier\(\s*["'](?:480p|720p|1080p|4k)[ _-](?:video|text)/i.test(dynamicSummary.rawExpression) ||
+    dynamicSummary?.tiers.some((tier) =>
+      /(?:480p|720p|1080p|4k)[ _-]?(?:video|text|input|output)/i.test(
+        tier.label || ''
+      )
+    )
+  )
+  const discountedDynamicSummary =
+    hasDiscount && isDynamicPricing
+      ? getDynamicPricingSummary(props.model, discountedDynamicPriceOptions)
+      : null
   const peakValleyRows =
-    dynamicSummary && !dynamicSummary.isSpecialExpression
-      ? getPeakValleyPriceRows(dynamicSummary, dynamicPriceOptions)
+    dynamicSummary &&
+    !dynamicSummary.isSpecialExpression &&
+    !dynamicSummary.tiers.some((tier) =>
+      /(?:480p|720p|1080p|4k)[ _-]?(?:video|text|input|output)/i.test(
+        tier.label || ''
+      )
+    )
+      ? getPeakValleyPriceRows(dynamicSummary, dynamicPriceOptions, t)
       : []
+  const discountedPeakValleyRows =
+    discountedDynamicSummary && !discountedDynamicSummary.isSpecialExpression
+      ? getPeakValleyPriceRows(
+          discountedDynamicSummary,
+          discountedDynamicPriceOptions,
+          t
+        )
+      : []
+
+  const requestPrice = formatRequestPrice(
+    props.model,
+    showRechargePrice,
+    priceRate,
+    usdExchangeRate
+  )
+  const discountedRequestPrice = hasDiscount
+    ? formatRequestPrice(
+        props.model,
+        showRechargePrice,
+        priceRate,
+        usdExchangeRate,
+        discountMultiplier
+      )
+    : null
 
   const bottomTags = [...endpoints.slice(0, 2), ...tags.slice(0, 2)]
   const hiddenCount =
@@ -222,12 +300,19 @@ export const ModelCard = memo(function ModelCard(props: ModelCardProps) {
             )}
           </div>
           <div className='min-w-0'>
-            <h3 className='text-foreground truncate font-mono text-[15px] leading-tight font-bold'>
-              {props.model.model_name}
-            </h3>
+            <div className='flex min-w-0 items-center gap-1.5'>
+              <h3 className='text-foreground min-w-0 shrink truncate font-mono text-[15px] leading-tight font-bold'>
+                {props.model.model_name}
+              </h3>
+              {discountLabel && (
+                <span className='inline-flex shrink-0 items-center rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300'>
+                  {discountLabel}
+                </span>
+              )}
+            </div>
             <div className='mt-0.5 flex flex-wrap items-baseline gap-x-2 gap-y-0.5 text-xs sm:mt-1 sm:gap-x-3'>
               {dynamicSummary ? (
-                dynamicSummary.isSpecialExpression ? (
+                dynamicSummary.isSpecialExpression && !hasVideoTiers ? (
                   <span className='min-w-0'>
                     <span className='text-amber-700 dark:text-amber-300'>
                       {t('Special billing expression')}
@@ -236,7 +321,7 @@ export const ModelCard = memo(function ModelCard(props: ModelCardProps) {
                       {dynamicSummary.rawExpression}
                     </code>
                   </span>
-                ) : peakValleyRows.length > 0 ? (
+              ) : peakValleyRows.length > 0 ? (
                   <div className='w-full space-y-1'>
                     {peakValleyRows.map((row) => (
                       <div
@@ -247,39 +332,81 @@ export const ModelCard = memo(function ModelCard(props: ModelCardProps) {
                           {t(row.labelKey)}
                         </span>
                         <span className='text-muted-foreground/70 shrink-0'>
-                          {row.key === 'offPeak'
-                            ? t(row.timeLabel)
-                            : row.timeLabel}
+                          {row.timeLabel}
                         </span>
-                        {row.entries.map((entry) => (
-                          <span
-                            key={entry.key}
-                            className='text-muted-foreground whitespace-nowrap'
-                          >
-                            {t(entry.shortLabel)}{' '}
-                            <span className='text-foreground font-mono font-semibold'>
-                              {entry.formatted}
+                        {row.entries.map((entry) => {
+                          const discountedEntry = discountedPeakValleyRows
+                            .find((item) => item.key === row.key)
+                            ?.entries.find((item) => item.key === entry.key)
+
+                          return (
+                            <span
+                              key={entry.key}
+                              className='text-muted-foreground whitespace-nowrap'
+                            >
+                              {t(entry.shortLabel)}{' '}
+                              <span className='text-foreground font-mono font-semibold'>
+                                {discountedEntry ? (
+                                  <>
+                                    <span className='text-muted-foreground/50 line-through'>
+                                      {entry.formatted}
+                                    </span>
+                                    <span className='ml-1'>
+                                      {discountedEntry.formatted}
+                                    </span>
+                                  </>
+                                ) : (
+                                  entry.formatted
+                                )}
+                              </span>
+                              /{tokenUnitLabel}
                             </span>
-                            /{tokenUnitLabel}
-                          </span>
-                        ))}
+                          )
+                        })}
                       </div>
                     ))}
                   </div>
+                ) : hasVideoTiers ? (
+                  <div className='flex w-full flex-col gap-y-1'>
+                    {dynamicSummary.tiers.map((tier) => {
+                      const label = tier.label || ''
+                      const price = Number(tier.output_unit_cost || tier.input_unit_cost)
+                      if (!price || !label) return null
+                      const displayLabel = label.replace(/_/g, ' ').replace(/\bvideo\b/i, '有视频').replace(/\btext\b/i, '无视频')
+                      return <span key={label} className='text-muted-foreground whitespace-nowrap'><span className='text-foreground font-medium'>{displayLabel}</span>{' '}<span className='text-foreground font-mono font-semibold'>{formatBillingCurrencyFromUSD(price, dynamicPriceOptions)}</span>/{tokenUnitLabel}</span>
+                    })}
+                  </div>
                 ) : dynamicSummary.entries.length > 0 ? (
                   <>
-                    {dynamicSummary.entries.map((entry) => (
-                      <span
-                        key={entry.key}
-                        className='text-muted-foreground whitespace-nowrap'
-                      >
-                        {t(entry.shortLabel)}{' '}
-                        <span className='text-foreground font-mono font-semibold'>
-                          {entry.formatted}
+                    {dynamicSummary.entries.map((entry) => {
+                      const discountedEntry = discountedDynamicSummary?.entries.find(
+                        (item) => item.key === entry.key
+                      )
+
+                      return (
+                        <span
+                          key={entry.key}
+                          className='text-muted-foreground whitespace-nowrap'
+                        >
+                          {t(entry.shortLabel)}{' '}
+                          <span className='text-foreground font-mono font-semibold'>
+                            {discountedEntry ? (
+                              <>
+                                <span className='text-muted-foreground/50 line-through'>
+                                  {entry.formatted}
+                                </span>
+                                <span className='ml-1'>
+                                  {discountedEntry.formatted}
+                                </span>
+                              </>
+                            ) : (
+                              entry.formatted
+                            )}
+                          </span>
+                          /{tokenUnitLabel}
                         </span>
-                        /{tokenUnitLabel}
-                      </span>
-                    ))}
+                      )
+                    })}
                   </>
                 ) : (
                   <span className='text-muted-foreground text-xs'>
@@ -288,44 +415,72 @@ export const ModelCard = memo(function ModelCard(props: ModelCardProps) {
                 )
               ) : isTokenBased ? (
                 <>
-                  {tokenPriceEntries.map((entry) => (
-                    <span
-                      key={entry.key}
-                      className={cn(
-                        'whitespace-nowrap',
-                        entry.dim
-                          ? 'text-muted-foreground/60'
-                          : 'text-muted-foreground'
-                      )}
-                    >
-                      {entry.label}{' '}
-                      <span
-                        className={cn(
-                          'font-mono',
-                          entry.dim ? '' : 'text-foreground font-semibold'
-                        )}
-                      >
-                        {formatPrice(
+                  {tokenPriceEntries.map((entry) => {
+                    const originalPrice = formatPrice(
+                      props.model,
+                      entry.type,
+                      tokenUnit,
+                      showRechargePrice,
+                      priceRate,
+                      usdExchangeRate
+                    )
+                    const discountedPrice = hasDiscount
+                      ? formatPrice(
                           props.model,
                           entry.type,
                           tokenUnit,
                           showRechargePrice,
                           priceRate,
-                          usdExchangeRate
+                          usdExchangeRate,
+                          discountMultiplier
+                        )
+                      : null
+
+                    return (
+                      <span
+                        key={entry.key}
+                        className={cn(
+                          'whitespace-nowrap',
+                          entry.dim
+                            ? 'text-muted-foreground/60'
+                            : 'text-muted-foreground'
                         )}
+                      >
+                        {entry.label}{' '}
+                        <span
+                          className={cn(
+                            'font-mono',
+                            entry.dim ? '' : 'text-foreground font-semibold'
+                          )}
+                        >
+                          {discountedPrice ? (
+                            <>
+                              <span className='text-muted-foreground/50 line-through'>
+                                {originalPrice}
+                              </span>
+                              <span className='ml-1'>{discountedPrice}</span>
+                            </>
+                          ) : (
+                            originalPrice
+                          )}
+                        </span>
+                        /{tokenUnitLabel}
                       </span>
-                      /{tokenUnitLabel}
-                    </span>
-                  ))}
+                    )
+                  })}
                 </>
               ) : (
                 <span className='text-muted-foreground whitespace-nowrap'>
                   <span className='text-foreground font-mono font-semibold'>
-                    {formatRequestPrice(
-                      props.model,
-                      showRechargePrice,
-                      priceRate,
-                      usdExchangeRate
+                    {discountedRequestPrice ? (
+                      <>
+                        <span className='text-muted-foreground/50 line-through'>
+                          {requestPrice}
+                        </span>
+                        <span className='ml-1'>{discountedRequestPrice}</span>
+                      </>
+                    ) : (
+                      requestPrice
                     )}
                   </span>{' '}
                   / {t('request')}

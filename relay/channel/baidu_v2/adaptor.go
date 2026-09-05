@@ -44,6 +44,9 @@ func (a *Adaptor) Init(info *relaycommon.RelayInfo) {
 }
 
 func (a *Adaptor) GetRequestURL(info *relaycommon.RelayInfo) (string, error) {
+	if info.RelayFormat == types.RelayFormatClaude {
+		return fmt.Sprintf("%s/v2/chat/completions", info.ChannelBaseUrl), nil
+	}
 	switch info.RelayMode {
 	case constant.RelayModeChatCompletions:
 		return fmt.Sprintf("%s/v2/chat/completions", info.ChannelBaseUrl), nil

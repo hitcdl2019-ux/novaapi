@@ -90,6 +90,7 @@ const extendedModelFormSchema = z.object({
   status: z.boolean(),
   sync_official: z.boolean(),
   price: z.string().optional(),
+  discount: z.string().optional(),
   ratio: z.string().optional(),
   cacheRatio: z.string().optional(),
   completionRatio: z.string().optional(),
@@ -102,6 +103,8 @@ type ExtendedModelFormValues = z.infer<typeof extendedModelFormSchema>
 
 type PricingMode = 'per-token' | 'per-request'
 type PricingSubMode = 'ratio' | 'price'
+
+const DEFAULT_MODEL_DISCOUNT = '1.0'
 
 type ModelMutateDrawerProps = {
   open: boolean
@@ -153,6 +156,7 @@ export function ModelMutateDrawer({
       'global.pass_through_request_enabled': false,
       'global.thinking_model_blacklist': '[]',
       'global.chat_completions_to_responses_policy': '{}',
+      'global.responses_to_chat_completions_policy': '{}',
       'general_setting.ping_interval_enabled': false,
       'general_setting.ping_interval_seconds': 60,
       'gemini.safety_settings': '',
@@ -168,6 +172,7 @@ export function ModelMutateDrawer({
       'claude.thinking_adapter_budget_tokens_percentage': 0.8,
       ModelPrice: '',
       ModelRatio: '',
+      ModelDiscount: '',
       CacheRatio: '',
       CompletionRatio: '',
       ImageRatio: '',
@@ -211,6 +216,7 @@ export function ModelMutateDrawer({
       status: true,
       sync_official: true,
       price: '',
+      discount: DEFAULT_MODEL_DISCOUNT,
       ratio: '',
       cacheRatio: '',
       completionRatio: '',
@@ -270,6 +276,7 @@ export function ModelMutateDrawer({
         status: model.status === 1,
         sync_official: model.sync_official === 1,
         price: '',
+        discount: DEFAULT_MODEL_DISCOUNT,
         ratio: '',
         cacheRatio: '',
         completionRatio: '',
@@ -282,6 +289,10 @@ export function ModelMutateDrawer({
       if (modelSettings) {
         const priceMap = safeJsonParse<Record<string, number>>(
           modelSettings.ModelPrice,
+          { fallback: {}, silent: true }
+        )
+        const discountMap = safeJsonParse<Record<string, number>>(
+          modelSettings.ModelDiscount,
           { fallback: {}, silent: true }
         )
         const ratioMap = safeJsonParse<Record<string, number>>(
@@ -312,6 +323,7 @@ export function ModelMutateDrawer({
         // Extract ratio config for this model
         const modelName = model.model_name
         const price = priceMap[modelName]
+        const discount = discountMap[modelName]
         const ratio = ratioMap[modelName]
         const cacheRatio = cacheMap[modelName]
         const completionRatio = completionMap[modelName]
@@ -325,6 +337,7 @@ export function ModelMutateDrawer({
           form.reset({
             ...baseModelData,
             price: price.toString(),
+            discount: discount?.toString() || DEFAULT_MODEL_DISCOUNT,
           })
         } else {
           setPricingMode('per-token')
@@ -339,6 +352,7 @@ export function ModelMutateDrawer({
           form.reset({
             ...baseModelData,
             ratio: ratio?.toString() || '',
+            discount: discount?.toString() || DEFAULT_MODEL_DISCOUNT,
             cacheRatio: cacheRatio?.toString() || '',
             completionRatio: completionRatio?.toString() || '',
             imageRatio: imageRatio?.toString() || '',
@@ -374,6 +388,7 @@ export function ModelMutateDrawer({
         status: true,
         sync_official: true,
         price: '',
+        discount: DEFAULT_MODEL_DISCOUNT,
         ratio: '',
         cacheRatio: '',
         completionRatio: '',
@@ -399,6 +414,7 @@ export function ModelMutateDrawer({
         // Remove ratio fields from model data (they're stored in system settings)
         const {
           price,
+          discount,
           ratio,
           cacheRatio,
           completionRatio,
@@ -435,6 +451,10 @@ export function ModelMutateDrawer({
               modelSettings.ModelPrice,
               { fallback: {}, silent: true }
             )
+            const discountMap = safeJsonParse<Record<string, number>>(
+              modelSettings.ModelDiscount,
+              { fallback: {}, silent: true }
+            )
             const ratioMap = safeJsonParse<Record<string, number>>(
               modelSettings.ModelRatio,
               { fallback: {}, silent: true }
@@ -463,6 +483,7 @@ export function ModelMutateDrawer({
             // Remove old model name entries if model name changed (always, even if no new config)
             if (isEditing && oldModelName && oldModelName !== finalModelName) {
               delete priceMap[oldModelName]
+              delete discountMap[oldModelName]
               delete ratioMap[oldModelName]
               delete cacheMap[oldModelName]
               delete completionMap[oldModelName]
@@ -474,12 +495,20 @@ export function ModelMutateDrawer({
             // Remove current model name from all maps first (always, to handle mode switches or clearing)
             // This ensures stale entries are removed even when user clears all fields
             delete priceMap[finalModelName]
+            delete discountMap[finalModelName]
             delete ratioMap[finalModelName]
             delete cacheMap[finalModelName]
             delete completionMap[finalModelName]
             delete imageMap[finalModelName]
             delete audioMap[finalModelName]
             delete audioCompletionMap[finalModelName]
+
+            if (values.discount && values.discount !== '') {
+              const parsedDiscount = parseFloat(values.discount)
+              if (Number.isFinite(parsedDiscount) && parsedDiscount !== 1) {
+                discountMap[finalModelName] = parsedDiscount
+              }
+            }
 
             // Only add new entries if user provided new configuration
             if (hasRatioConfig) {
@@ -526,6 +555,16 @@ export function ModelMutateDrawer({
               newModelPrice !== normalizeJsonString(modelSettings.ModelPrice)
             ) {
               updates.push({ key: 'ModelPrice', value: newModelPrice })
+            }
+
+            const newModelDiscount = normalizeJsonString(
+              JSON.stringify(discountMap)
+            )
+            if (
+              newModelDiscount !==
+              normalizeJsonString(modelSettings.ModelDiscount)
+            ) {
+              updates.push({ key: 'ModelDiscount', value: newModelDiscount })
             }
 
             const newModelRatio = normalizeJsonString(JSON.stringify(ratioMap))
@@ -915,6 +954,35 @@ export function ModelMutateDrawer({
                   </div>
                 </RadioGroup>
               </div>
+
+              <FormField
+                control={form.control}
+                name='discount'
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>{t('Model discount')}</FormLabel>
+                    <FormControl>
+                      <Input
+                        type='text'
+                        placeholder='1.0'
+                        {...field}
+                        onChange={(e) => {
+                          const value = e.target.value
+                          if (validateNumber(value)) {
+                            field.onChange(value)
+                          }
+                        }}
+                      />
+                    </FormControl>
+                    <FormDescription>
+                      {t(
+                        'Final price multiplier for this model. 0.8 means 20% off; leave empty to use default 1.'
+                      )}
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
 
               {pricingMode === 'per-request' ? (
                 <FormField

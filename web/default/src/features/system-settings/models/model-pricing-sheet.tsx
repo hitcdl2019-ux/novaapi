@@ -432,6 +432,8 @@ export function ModelPricingEditorPanel({
     label: currencyLabel,
   } = getPricingInputCurrency()
   const [pricingMode, setPricingMode] = useState<PricingMode>('per-token')
+  const [seedanceEnabled, setSeedanceEnabled] = useState(false)
+  const [seedanceTierEnabled, setSeedanceTierEnabled] = useState({ p480v: false, p480n: false, p720v: false, p720n: false, p1080v: false, p1080n: false, p4kv: false, p4kn: false })
   const [promptPrice, setPromptPrice] = useState('')
   const [lanePrices, setLanePrices] = useState<Record<LaneKey, string>>({
     ...EMPTY_LANE_PRICES,
@@ -440,6 +442,7 @@ export function ModelPricingEditorPanel({
     ...EMPTY_LANE_ENABLED,
   })
   const [billingExpr, setBillingExpr] = useState('')
+  const [seedancePrices, setSeedancePrices] = useState({ p480v: '', p480n: '', p720v: '', p720n: '', p1080v: '', p1080n: '', p4kv: '', p4kn: '' })
   const [requestRuleExpr, setRequestRuleExpr] = useState('')
   const [previewOpen, setPreviewOpen] = useState(true)
   const isEditMode = !!editData
@@ -484,6 +487,9 @@ export function ModelPricingEditorPanel({
             : 'per-token'
       )
       setBillingExpr(editData.billingExpr || '')
+      setSeedanceEnabled(Boolean(editData.billingExpr?.includes('720p_video')))
+      const matches = (editData.billingExpr || '').match(/cny\(([^)]+)\)/g)?.map((v) => v.slice(4, -1)) || []
+      if (matches.length >= 8) setSeedancePrices({ p480v: matches[0], p480n: matches[1], p720v: matches[2], p720n: matches[3], p1080v: matches[4], p1080n: matches[5], p4kv: matches[6], p4kn: matches[7] })
       setRequestRuleExpr(editData.requestRuleExpr || '')
     } else {
       form.reset({
@@ -743,6 +749,17 @@ export function ModelPricingEditorPanel({
 
     if (pricingMode === 'tiered_expr') {
       data.billingExpr = billingExpr
+      if (seedanceEnabled) {
+        const p = seedancePrices
+        const tiers = [['480p','p480v','p480n'],['720p','p720v','p720n'],['1080p','p1080v','p1080n'],['4k','p4kv','p4kn']] as const
+        const branches = tiers.flatMap(([res, video, text]) => {
+          const out: string[] = []
+          if (seedanceTierEnabled[video] && p[video]) out.push(`param("resolution") == "${res}" && has(param("content.#.type"), "video_url") ? tier("${res}_video", c * cny(${p[video]}))`)
+          if (seedanceTierEnabled[text] && p[text]) out.push(`param("resolution") == "${res}" ? tier("${res}_text", c * cny(${p[text]}))`)
+          return out
+        })
+        if (branches.length) data.billingExpr = branches.reduceRight((expr, branch) => `${branch} : ${expr}`, 'tier("unconfigured", c * 0)')
+      }
       data.requestRuleExpr = requestRuleExpr
     }
 
@@ -921,6 +938,17 @@ export function ModelPricingEditorPanel({
                   value='tiered_expr'
                   className='flex flex-col gap-5'
                 >
+                  <div className='flex items-center gap-2 rounded border p-3'>
+                    <Switch checked={seedanceEnabled} onCheckedChange={setSeedanceEnabled} />
+                    <span className='text-sm'>启用 Seedance 视频分档计费</span>
+                  </div>
+                  {seedanceEnabled && (
+                    <div className='grid grid-cols-2 gap-3 rounded border p-3'>
+                      {([['p480v','480p 有视频'],['p480n','480p 无视频'],['p720v','720p 有视频'],['p720n','720p 无视频'],['p1080v','1080p 有视频'],['p1080n','1080p 无视频'],['p4kv','4K 有视频'],['p4kn','4K 无视频']] as const).map(([key,label]) => (
+                        <label key={key} className='text-sm flex items-center gap-2'><Switch checked={seedanceTierEnabled[key]} onCheckedChange={v => setSeedanceTierEnabled({...seedanceTierEnabled, [key]: v})} /><span>{label}</span><Input value={seedancePrices[key]} disabled={!seedanceTierEnabled[key]} onChange={e => setSeedancePrices({...seedancePrices, [key]: e.target.value})} placeholder='CNY / 1M tokens' /></label>
+                      ))}
+                    </div>
+                  )}
                   <TieredPricingEditor
                     modelName={watchedValues.name}
                     billingExpr={billingExpr}

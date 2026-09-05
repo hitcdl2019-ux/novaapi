@@ -29,6 +29,8 @@ import { useMediaQuery } from '@/hooks'
 import { useTranslation } from 'react-i18next'
 import { useTableUrlState } from '@/hooks/use-table-url-state'
 import { DataTablePage } from '@/components/data-table'
+import { useSystemOptions } from '@/features/system-settings/hooks/use-system-options'
+import { safeJsonParse } from '@/features/system-settings/utils/json-parser'
 import { getModels, searchModels, getVendors } from '../api'
 import {
   DEFAULT_PAGE_SIZE,
@@ -46,6 +48,7 @@ export function ModelsTable() {
   const { t } = useTranslation()
   const { selectedVendor } = useModels()
   const isMobile = useMediaQuery('(max-width: 640px)')
+  const { data: systemOptionsData } = useSystemOptions()
 
   // Table state
   const [sorting, setSorting] = useState<SortingState>([])
@@ -99,6 +102,17 @@ export function ModelsTable() {
     () => vendorsData?.data?.items || [],
     [vendorsData?.data?.items]
   )
+
+  const modelDiscountMap = useMemo(() => {
+    const option = systemOptionsData?.data?.find(
+      (item) => item.key === 'ModelDiscount'
+    )
+    if (!option?.value) return {}
+    return safeJsonParse<Record<string, number>>(option.value, {
+      fallback: {},
+      silent: true,
+    })
+  }, [systemOptionsData])
 
   const vendorOptions = useMemo(() => {
     return vendors.map((v) => ({
@@ -173,7 +187,7 @@ export function ModelsTable() {
   const vendorCounts = data?.data?.vendor_counts
 
   // Columns configuration
-  const columns = useModelsColumns(vendors)
+  const columns = useModelsColumns(vendors, modelDiscountMap)
 
   // React Table instance
   const table = useReactTable({

@@ -166,7 +166,8 @@ export function formatPrice(
   tokenUnit: TokenUnit,
   showWithRecharge = false,
   priceRate = 1,
-  usdExchangeRate = 1
+  usdExchangeRate = 1,
+  discountMultiplier = 1
 ): string {
   if (model.quota_type === QUOTA_TYPE_VALUES.REQUEST) {
     return '-'
@@ -179,6 +180,7 @@ export function formatPrice(
   const minRatio = getMinGroupRatio(enableGroups, groupRatio)
 
   let priceInUSD = calculateTokenPrice(model, type, minRatio)
+  priceInUSD *= discountMultiplier
   priceInUSD = applyRechargeRate(
     priceInUSD,
     showWithRecharge,
@@ -268,7 +270,8 @@ export function formatRequestPrice(
   model: PricingModel,
   showWithRecharge = false,
   priceRate = 1,
-  usdExchangeRate = 1
+  usdExchangeRate = 1,
+  discountMultiplier = 1
 ): string {
   if (model.quota_type !== QUOTA_TYPE_VALUES.REQUEST) {
     return '-'
@@ -281,6 +284,7 @@ export function formatRequestPrice(
   const minRatio = getMinGroupRatio(enableGroups, groupRatio)
 
   let priceInUSD = (model.model_price || 0) * minRatio
+  priceInUSD *= discountMultiplier
 
   priceInUSD = applyRechargeRate(
     priceInUSD,
