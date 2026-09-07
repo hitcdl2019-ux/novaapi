@@ -27,6 +27,7 @@ import {
   getDynamicPriceEntries,
   getDynamicDisplayGroupRatio,
   getDynamicPricingSummary,
+  formatDynamicUnitPrice,
   type DynamicPriceEntry,
   type DynamicPricingSummary,
 } from '../lib/dynamic-price'
@@ -38,7 +39,6 @@ import {
   isTokenBasedModel,
 } from '../lib/model-helpers'
 import { formatPrice, formatRequestPrice } from '../lib/price'
-import { formatBillingCurrencyFromUSD } from '@/lib/currency'
 import type { PricingModel, TokenUnit, PriceType } from '../types'
 import { ModelPerfBadge, type ModelPerfBadgeData } from './model-perf-badge'
 
@@ -141,7 +141,7 @@ function getPeakValleyPriceRows(
 
   if (!peakTier || !offPeakTier) return []
 
-  return [
+  const rows: PeakValleyPriceRow[] = [
     {
       key: 'peak',
       labelKey: 'Peak price',
@@ -158,7 +158,8 @@ function getPeakValleyPriceRows(
         : t('Other times'),
       entries: getDynamicPriceEntries(offPeakTier, options),
     },
-  ].filter((row) => row.entries.length > 0)
+  ]
+  return rows.filter((row) => row.entries.length > 0)
 }
 
 export const ModelCard = memo(function ModelCard(props: ModelCardProps) {
@@ -373,7 +374,7 @@ export const ModelCard = memo(function ModelCard(props: ModelCardProps) {
                       const price = Number(tier.output_unit_cost || tier.input_unit_cost)
                       if (!price || !label) return null
                       const displayLabel = label.replace(/_/g, ' ').replace(/\bvideo\b/i, '有视频').replace(/\btext\b/i, '无视频')
-                      return <span key={label} className='text-muted-foreground whitespace-nowrap'><span className='text-foreground font-medium'>{displayLabel}</span>{' '}<span className='text-foreground font-mono font-semibold'>{formatBillingCurrencyFromUSD(price, dynamicPriceOptions)}</span>/{tokenUnitLabel}</span>
+                      return <span key={label} className='text-muted-foreground whitespace-nowrap'><span className='text-foreground font-medium'>{displayLabel}</span>{' '}<span className='text-foreground font-mono font-semibold'>{formatDynamicUnitPrice(price, dynamicPriceOptions)}</span>/{tokenUnitLabel}</span>
                     })}
                   </div>
                 ) : dynamicSummary.entries.length > 0 ? (

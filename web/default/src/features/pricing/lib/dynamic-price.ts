@@ -16,7 +16,10 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { formatBillingCurrencyFromUSD } from '@/lib/currency'
+import {
+  formatBillingCurrencyFromUSD,
+  getPricingInputCurrency,
+} from '@/lib/currency'
 import { TOKEN_UNIT_DIVISORS } from '../constants'
 import type { PricingModel, TokenUnit } from '../types'
 import {
@@ -224,9 +227,25 @@ export function getDynamicPricingSummary(
   if (!isDynamicPricingModel(model)) return null
 
   const tiers = getDynamicPricingTiers(model)
-  const seedanceMatches = [...(model.billing_expr || '').matchAll(/tier\("([^"]+)",\s*c\s*\*\s*cny\(([-+]?\d*\.?\d+)\)\)/g)]
+  const seedanceMatches = [
+    ...(model.billing_expr || '').matchAll(
+      /tier\("([^"]+)",\s*c\s*\*\s*cny\(([-+]?\d*\.?\d+)\)\)/g
+    ),
+  ]
   if (seedanceMatches.length) {
-    tiers.splice(0, tiers.length, ...seedanceMatches.map((m) => ({ label: m[1], output_unit_cost: Number(m[2]), conditions: [] } as ParsedTier)))
+    const currentRate = getPricingInputCurrency().rate || 1
+    tiers.splice(
+      0,
+      tiers.length,
+      ...seedanceMatches.map(
+        (m) =>
+          ({
+            label: m[1],
+            output_unit_cost: Number(m[2]) / currentRate,
+            conditions: [],
+          }) as ParsedTier
+      )
+    )
   }
   const tier = tiers[0] || null
   const entries = getDynamicPriceRangeEntries(tiers, options)

@@ -298,7 +298,7 @@ export function parseTiersFromExpr(exprStr: string): ParsedTier[] {
       'g'
     )
     const tiers: ParsedTier[] = []
-    let m
+    let m: RegExpExecArray | null
     while ((m = tierRe.exec(body)) !== null) {
       const condStr = m[1] || ''
       const conditions: TierCondition[] = []
@@ -325,9 +325,10 @@ export function parseTiersFromExpr(exprStr: string): ParsedTier[] {
     const seedanceRe = /tier\("([^"]+)",\s*c\s*\*\s*cny\(([-+]?\d*\.?\d+)\)\)/g
     const currentRate = getPricingInputCurrency().rate || 1
     while ((m = seedanceRe.exec(body)) !== null) {
-      if (!tiers.some((tier) => tier.label === m[1])) {
+      const label = m[1]
+      if (!tiers.some((tier) => tier.label === label)) {
         tiers.push({
-          label: m[1],
+          label,
           output_unit_cost: Number(m[2]) / currentRate,
           conditions: [],
         } as ParsedTier)

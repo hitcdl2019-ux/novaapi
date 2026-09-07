@@ -142,7 +142,7 @@ function SegmentedControl(props: {
 export function PricingToolbar(props: PricingToolbarProps) {
   const { t } = useTranslation()
   const { auth } = useAuthStore()
-  const isAdmin = auth.user?.role && auth.user.role >= 10
+  const isAdmin = Boolean(auth.user?.role && auth.user.role >= 10)
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false)
   const sortLabels = getSortLabels(t)
 
