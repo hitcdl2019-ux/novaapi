@@ -4804,6 +4804,7 @@
     "Final price multiplier for this model. 0.8 means 20% off; leave empty to use default 1.": "Final price multiplier for this model. 0.8 means 20% off; leave empty to use default 1.",
     "Add model rule": "Add model rule",
     "Duplicate model rule": "Duplicate model rule",
-    "Set a per-model discount ratio override for this user": "Set a per-model discount ratio override for this user"
+    "Set a per-model discount ratio override for this user": "Set a per-model discount ratio override for this user",
+    "Video Generation (/v1/video/generations)": "Video Generation (/v1/video/generations)"
   }
 }

@@ -4804,6 +4804,7 @@
     "Final price multiplier for this model. 0.8 means 20% off; leave empty to use default 1.": "该模型的最终价格倍率。0.8 表示 8 折；留空则使用默认值 1。",
     "Add model rule": "添加模型规则",
     "Duplicate model rule": "模型规则重复",
-    "Set a per-model discount ratio override for this user": "为该用户设置按模型的折扣倍率"
+    "Set a per-model discount ratio override for this user": "为该用户设置按模型的折扣倍率",
+    "Video Generation (/v1/video/generations)": "视频生成 (/v1/video/generations)"
   }
 }

@@ -1,6 +1,8 @@
 package helper
 
 import (
+	"bytes"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -10,10 +12,51 @@ import (
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
 	"github.com/QuantumNous/new-api/setting/billing_setting"
 	"github.com/QuantumNous/new-api/setting/config"
+	"github.com/QuantumNous/new-api/setting/operation_setting"
 	"github.com/QuantumNous/new-api/types"
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/require"
 )
+
+func TestModelPriceHelperPerCallUsesTieredVideoPricing(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	saved := map[string]string{}
+	require.NoError(t, config.GlobalConfig.SaveToDB(func(key, value string) error {
+		saved[key] = value
+		return nil
+	}))
+	t.Cleanup(func() {
+		require.NoError(t, config.GlobalConfig.LoadFromDB(saved))
+	})
+	require.NoError(t, config.GlobalConfig.LoadFromDB(map[string]string{
+		"billing_setting.billing_mode": `{"tiered-video-model":"tiered_expr"}`,
+		"billing_setting.billing_expr": `{"tiered-video-model":"param(\"resolution\") == \"720p\" ? tier(\"720p_text\", c * cny(70)) : tier(\"unconfigured\", c * 0)"}`,
+	}))
+
+	body := []byte(`{"model":"tiered-video-model","prompt":"test","metadata":{"resolution":"720p","content":[]}}`)
+	recorder := httptest.NewRecorder()
+	ctx, _ := gin.CreateTestContext(recorder)
+	ctx.Request = httptest.NewRequest(http.MethodPost, "/v1/video/generations", io.NopCloser(bytes.NewReader(body)))
+	ctx.Request.Header.Set("Content-Type", "application/json")
+	ctx.Set("group", "default")
+	info := &relaycommon.RelayInfo{
+		OriginModelName: "tiered-video-model",
+		UserGroup:       "default",
+		UsingGroup:      "default",
+		TaskRelayInfo:   &relaycommon.TaskRelayInfo{},
+	}
+	require.Nil(t, relaycommon.ValidateBasicTaskRequest(ctx, info, "generate"))
+
+	priceData, err := ModelPriceHelperPerCall(ctx, info)
+	require.NoError(t, err)
+	require.True(t, priceData.UsePrice)
+	require.Equal(t, "720p_text", info.TieredBillingSnapshot.EstimatedTier)
+	require.NotNil(t, priceData.TaskVideoTierPricing)
+	require.InDelta(t, 70/operation_setting.USDExchangeRate, priceData.TaskVideoTierPricing.SelectedPriceUSDPer1M, 1e-9)
+	require.Equal(t, billingexpr.QuotaRound(70/operation_setting.USDExchangeRate*common.QuotaPerUnit), priceData.Quota)
+	require.True(t, priceData.AllowPerCallCompletionAdjustment)
+}
 
 func TestModelPriceHelperTieredUsesPreloadedRequestInput(t *testing.T) {
 	gin.SetMode(gin.TestMode)

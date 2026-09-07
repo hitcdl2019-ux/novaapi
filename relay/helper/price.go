@@ -181,6 +181,9 @@ func ModelPriceHelper(c *gin.Context, info *relaycommon.RelayInfo, promptTokens 
 // ModelPriceHelperPerCall 按次/按量计费的 PriceHelper (MJ、Task)
 func ModelPriceHelperPerCall(c *gin.Context, info *relaycommon.RelayInfo) (types.PriceData, error) {
 	groupRatioInfo := HandleGroupRatio(c, info)
+	if billing_setting.GetBillingMode(info.OriginModelName) == billing_setting.BillingModeTieredExpr {
+		return modelPriceHelperPerCallTiered(c, info, groupRatioInfo)
+	}
 
 	modelPrice, success := ratio_setting.GetModelPrice(info.OriginModelName, true)
 	usePrice := success
@@ -237,6 +240,117 @@ func ModelPriceHelperPerCall(c *gin.Context, info *relaycommon.RelayInfo) (types
 		GroupRatioInfo: groupRatioInfo,
 	}
 	return priceData, nil
+}
+
+func modelPriceHelperPerCallTiered(c *gin.Context, info *relaycommon.RelayInfo, groupRatioInfo types.GroupRatioInfo) (types.PriceData, error) {
+	exprStr, ok := billing_setting.GetBillingExpr(info.OriginModelName)
+	if !ok || strings.TrimSpace(exprStr) == "" {
+		return types.PriceData{}, fmt.Errorf("model %s is configured as tiered_expr but has no billing expression", info.OriginModelName)
+	}
+
+	requestInput, resolution, hasVideoInput, err := taskBillingExprRequestInput(c, info)
+	if err != nil {
+		return types.PriceData{}, err
+	}
+	requestInput.CNYExchangeRate = operation_setting.USDExchangeRate
+
+	const estimatedOutputTokens = 1_000_000
+	rawCost, trace, err := billingexpr.RunExprWithRequest(exprStr, billingexpr.TokenParams{
+		C:   estimatedOutputTokens,
+		Len: estimatedOutputTokens,
+	}, requestInput)
+	if err != nil {
+		return types.PriceData{}, fmt.Errorf("model %s tiered expr run failed: %w", info.OriginModelName, err)
+	}
+	if trace.MatchedTier == "unconfigured" {
+		return types.PriceData{}, fmt.Errorf("model %s has no tiered price configured for this task request", info.OriginModelName)
+	}
+	priceUSDPer1M := rawCost / estimatedOutputTokens
+	quotaBeforeGroup := priceUSDPer1M * common.QuotaPerUnit
+	quota := billingexpr.QuotaRound(quotaBeforeGroup * groupRatioInfo.GroupRatio)
+	freeModel := false
+	if !operation_setting.GetQuotaSetting().EnableFreeModelPreConsume &&
+		(groupRatioInfo.GroupRatio == 0 || priceUSDPer1M == 0) {
+		quota = 0
+		freeModel = true
+	}
+
+	info.BillingRequestInput = &requestInput
+	info.TieredBillingSnapshot = &billingexpr.BillingSnapshot{
+		BillingMode:               billing_setting.BillingModeTieredExpr,
+		ModelName:                 info.OriginModelName,
+		ExprString:                exprStr,
+		ExprHash:                  billingexpr.ExprHashString(exprStr),
+		GroupRatio:                groupRatioInfo.GroupRatio,
+		EstimatedCompletionTokens: estimatedOutputTokens,
+		EstimatedQuotaBeforeGroup: quotaBeforeGroup,
+		EstimatedQuotaAfterGroup:  quota,
+		EstimatedTier:             trace.MatchedTier,
+		QuotaPerUnit:              common.QuotaPerUnit,
+		ExprVersion:               billingexpr.ExprVersion(exprStr),
+		CNYExchangeRate:           requestInput.CNYExchangeRate,
+	}
+
+	priceData := types.PriceData{
+		FreeModel:         freeModel,
+		ModelPrice:        priceUSDPer1M,
+		UsePrice:          true,
+		Quota:             quota,
+		QuotaToPreConsume: quota,
+		GroupRatioInfo:    groupRatioInfo,
+		TaskVideoTierPricing: &types.TaskVideoTierPricing{
+			SelectedPriceUSDPer1M: priceUSDPer1M,
+			SelectedPriceCNYPer1M: priceUSDPer1M * requestInput.CNYExchangeRate,
+			CNYExchangeRate:       requestInput.CNYExchangeRate,
+			Resolution:            resolution,
+			HasVideoInput:         hasVideoInput,
+			Tier:                  trace.MatchedTier,
+		},
+		AllowPerCallCompletionAdjustment: true,
+	}
+	info.PriceData = priceData
+	return priceData, nil
+}
+
+func taskBillingExprRequestInput(c *gin.Context, info *relaycommon.RelayInfo) (billingexpr.RequestInput, string, bool, error) {
+	input, err := ResolveIncomingBillingExprRequestInput(c, info)
+	if err != nil {
+		return billingexpr.RequestInput{}, "", false, err
+	}
+	req, err := relaycommon.GetTaskRequest(c)
+	if err != nil {
+		return input, "", false, nil
+	}
+
+	body := make(map[string]interface{}, len(req.Metadata)+4)
+	for key, value := range req.Metadata {
+		body[key] = value
+	}
+	body["model"] = req.Model
+	body["prompt"] = req.Prompt
+	if req.Duration > 0 {
+		body["duration"] = req.Duration
+	}
+	if req.Size != "" {
+		body["size"] = req.Size
+	}
+	input.Body, err = common.Marshal(body)
+	if err != nil {
+		return billingexpr.RequestInput{}, "", false, err
+	}
+
+	resolution, _ := body["resolution"].(string)
+	hasVideoInput := false
+	if content, ok := body["content"].([]interface{}); ok {
+		for _, item := range content {
+			entry, ok := item.(map[string]interface{})
+			if ok && (entry["type"] == "video_url" || entry["video_url"] != nil) {
+				hasVideoInput = true
+				break
+			}
+		}
+	}
+	return input, resolution, hasVideoInput, nil
 }
 
 func HasModelBillingConfig(modelName string) bool {

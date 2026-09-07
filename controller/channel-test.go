@@ -68,7 +68,8 @@ func testChannel(channel *model.Channel, testModel string, endpointType string, 
 		constant.ChannelTypeDoubaoVideo,
 		constant.ChannelTypeVidu,
 	}
-	if lo.Contains(unsupportedTestChannelTypes, channel.Type) {
+	if lo.Contains(unsupportedTestChannelTypes, channel.Type) &&
+		strings.TrimSpace(endpointType) != string(constant.EndpointTypeOpenAIVideo) {
 		channelTypeName := constant.GetChannelTypeName(channel.Type)
 		return testResult{
 			localErr: fmt.Errorf("%s channel test is not supported", channelTypeName),
@@ -167,6 +168,9 @@ func testChannel(channel *model.Channel, testModel string, endpointType string, 
 			localErr:    newAPIError,
 			newAPIError: newAPIError,
 		}
+	}
+	if endpointType == string(constant.EndpointTypeOpenAIVideo) {
+		return testVideoChannel(c, channel, testModel)
 	}
 
 	// Determine relay format based on endpoint type or request path
@@ -503,6 +507,75 @@ func testChannel(channel *model.Channel, testModel string, endpointType string, 
 		localErr:    nil,
 		newAPIError: nil,
 	}
+}
+
+func testVideoChannel(c *gin.Context, channel *model.Channel, testModel string) testResult {
+	request := relaycommon.TaskSubmitReq{
+		Model:    testModel,
+		Prompt:   "A calm landscape",
+		Duration: 5,
+		Metadata: map[string]interface{}{
+			"resolution":     "720p",
+			"ratio":          "16:9",
+			"generate_audio": false,
+		},
+	}
+	body, err := common.Marshal(request)
+	if err != nil {
+		return testResult{context: c, localErr: err, newAPIError: types.NewError(err, types.ErrorCodeJsonMarshalFailed)}
+	}
+	c.Request.Body = io.NopCloser(bytes.NewReader(body))
+	c.Request.ContentLength = int64(len(body))
+
+	info, err := relaycommon.GenRelayInfo(c, types.RelayFormatTask, nil, nil)
+	if err != nil {
+		return testResult{context: c, localErr: err, newAPIError: types.NewError(err, types.ErrorCodeGenRelayInfoFailed)}
+	}
+	info.IsChannelTest = true
+	info.InitChannelMeta(c)
+	info.PublicTaskID = model.GenerateTaskID()
+
+	adaptor := relay.GetTaskAdaptor(constant.TaskPlatform(strconv.Itoa(channel.Type)))
+	if adaptor == nil {
+		err = fmt.Errorf("video generation test is not supported for channel type %s", constant.GetChannelTypeName(channel.Type))
+		return testResult{context: c, localErr: err, newAPIError: types.NewError(err, types.ErrorCodeInvalidApiType)}
+	}
+	adaptor.Init(info)
+	if taskErr := adaptor.ValidateRequestAndSetAction(c, info); taskErr != nil {
+		err = taskErr.Error
+		if err == nil {
+			err = errors.New(taskErr.Message)
+		}
+		return testResult{context: c, localErr: err, newAPIError: types.NewError(err, types.ErrorCodeInvalidRequest)}
+	}
+	if err = helper.ModelMappedHelper(c, info, nil); err != nil {
+		return testResult{context: c, localErr: err, newAPIError: types.NewError(err, types.ErrorCodeChannelModelMappedError)}
+	}
+
+	requestBody, err := adaptor.BuildRequestBody(c, info)
+	if err != nil {
+		return testResult{context: c, localErr: err, newAPIError: types.NewError(err, types.ErrorCodeConvertRequestFailed)}
+	}
+	resp, err := adaptor.DoRequest(c, info, requestBody)
+	if err != nil {
+		return testResult{context: c, localErr: err, newAPIError: types.NewOpenAIError(err, types.ErrorCodeDoRequestFailed, http.StatusInternalServerError)}
+	}
+	if resp == nil || resp.StatusCode < http.StatusOK || resp.StatusCode >= http.StatusMultipleChoices {
+		if resp == nil {
+			err = errors.New("video generation test returned an empty response")
+		} else {
+			err = service.RelayErrorHandler(c.Request.Context(), resp, true)
+		}
+		return testResult{context: c, localErr: err, newAPIError: types.NewOpenAIError(err, types.ErrorCodeBadResponse, http.StatusInternalServerError)}
+	}
+	if _, _, taskErr := adaptor.DoResponse(c, resp, info); taskErr != nil {
+		err = taskErr.Error
+		if err == nil {
+			err = errors.New(taskErr.Message)
+		}
+		return testResult{context: c, localErr: err, newAPIError: types.NewError(err, types.ErrorCodeBadResponseBody)}
+	}
+	return testResult{context: c}
 }
 
 func attachTestBillingRequestInput(info *relaycommon.RelayInfo, request dto.Request) error {
