@@ -323,9 +323,14 @@ export function parseTiersFromExpr(exprStr: string): ParsedTier[] {
     // part of the generic token-expression parser. Expose them as output
     // prices so model cards still show the configured amounts.
     const seedanceRe = /tier\("([^"]+)",\s*c\s*\*\s*cny\(([-+]?\d*\.?\d+)\)\)/g
+    const currentRate = getPricingInputCurrency().rate || 1
     while ((m = seedanceRe.exec(body)) !== null) {
       if (!tiers.some((tier) => tier.label === m[1])) {
-        tiers.push({ label: m[1], output_unit_cost: Number(m[2]), conditions: [] } as ParsedTier)
+        tiers.push({
+          label: m[1],
+          output_unit_cost: Number(m[2]) / currentRate,
+          conditions: [],
+        } as ParsedTier)
       }
     }
     return tiers
