@@ -54,11 +54,12 @@ const (
 	ChannelTypeDoubaoVideo    = 54
 	ChannelTypeSora           = 55
 	ChannelTypeReplicate      = 56
-	ChannelTypeStepFun    = 58
-	ChannelTypeBaichuan  = 59
-	ChannelTypeSenseNova = 60
-	ChannelTypeMiniCPM   = 61
-	ChannelTypeSkywork   = 62
+	ChannelTypeStepFun        = 58
+	ChannelTypeBaichuan       = 59
+	ChannelTypeSenseNova      = 60
+	ChannelTypeMiniCPM        = 61
+	ChannelTypeSkywork        = 62
+	ChannelTypeHopBase        = 63
 	ChannelTypeCodex          = 57
 	ChannelTypeDummy          // this one is only for count, do not add any channel after this
 
@@ -118,16 +119,17 @@ var ChannelBaseURLs = []string{
 	"https://api.klingai.com",                   //50
 	"https://visual.volcengineapi.com",          //51
 	"https://api.vidu.cn",                       //52
-	"https://api.stepfun.com",     //58
-	"https://api.baichuan-ai.com", //59
-	"https://api.sensenova.cn",    //60
-	"https://api.minicpm.chat",    //61
-	"https://api.skywork.cn",      //62
+	"https://api.stepfun.com",                   //58
+	"https://api.baichuan-ai.com",               //59
+	"https://api.sensenova.cn",                  //60
+	"https://api.minicpm.chat",                  //61
+	"https://api.skywork.cn",                    //62
 	"https://llm.submodel.ai",                   //53
 	"https://ark.cn-beijing.volces.com",         //54
 	"https://api.openai.com",                    //55
 	"https://api.replicate.com",                 //56
 	"https://chatgpt.com",                       //57
+	"https://api.hop-base.com",                  //63
 }
 
 var ChannelTypeNames = map[int]string{
@@ -185,11 +187,12 @@ var ChannelTypeNames = map[int]string{
 	ChannelTypeSora:           "Sora",
 	ChannelTypeReplicate:      "Replicate",
 	ChannelTypeCodex:          "Codex",
-	ChannelTypeStepFun:    "StepFun",
-	ChannelTypeBaichuan:  "Baichuan",
-	ChannelTypeSenseNova: "SenseNova",
-	ChannelTypeMiniCPM:   "MiniCPM",
-	ChannelTypeSkywork:   "Skywork",
+	ChannelTypeStepFun:        "StepFun",
+	ChannelTypeBaichuan:       "Baichuan",
+	ChannelTypeSenseNova:      "SenseNova",
+	ChannelTypeMiniCPM:        "MiniCPM",
+	ChannelTypeSkywork:        "Skywork",
+	ChannelTypeHopBase:        "HopBase",
 }
 
 func GetChannelTypeName(channelType int) string {

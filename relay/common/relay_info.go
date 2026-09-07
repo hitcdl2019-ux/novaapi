@@ -739,14 +739,33 @@ func (t *TaskSubmitReq) UnmarshalJSON(data []byte) error {
 			var metadataObj map[string]interface{}
 			if err := common.Unmarshal([]byte(metadataStr), &metadataObj); err == nil {
 				t.Metadata = metadataObj
-				return nil
 			}
 		}
 
-		var metadataObj map[string]interface{}
-		if err := common.Unmarshal(aux.Metadata, &metadataObj); err == nil {
-			t.Metadata = metadataObj
+		if t.Metadata == nil {
+			var metadataObj map[string]interface{}
+			if err := common.Unmarshal(aux.Metadata, &metadataObj); err == nil {
+				t.Metadata = metadataObj
+			}
 		}
+	}
+
+	var rawFields map[string]json.RawMessage
+	if err := common.Unmarshal(data, &rawFields); err != nil {
+		return err
+	}
+	for field, raw := range rawFields {
+		if isKnownTaskField(field) {
+			continue
+		}
+		var value interface{}
+		if err := common.Unmarshal(raw, &value); err != nil {
+			return fmt.Errorf("unmarshal task field %s failed: %w", field, err)
+		}
+		if t.Metadata == nil {
+			t.Metadata = make(map[string]interface{})
+		}
+		t.Metadata[field] = value
 	}
 
 	return nil

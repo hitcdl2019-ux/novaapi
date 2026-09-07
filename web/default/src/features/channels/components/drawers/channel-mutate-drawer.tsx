@@ -634,6 +634,10 @@ export function ChannelMutateDrawer({
       }
     }
 
+    if (currentType === 63 && !form.getValues('base_url')) {
+      form.setValue('base_url', 'https://api.hop-base.com')
+    }
+
     // Type 18 (Xunfei) - set default other (version)
     if (currentType === 18) {
       const currentOther = form.getValues('other')

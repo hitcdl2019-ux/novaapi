@@ -82,3 +82,49 @@ func TestAdjustBillingOnCompleteUsesFrozenVideoTierPrice(t *testing.T) {
 
 	assert.Equal(t, int(12*common.QuotaPerUnit*2), actualQuota)
 }
+
+func TestConvertToRequestPayloadUsesDuration(t *testing.T) {
+	payload, err := (&TaskAdaptor{}).convertToRequestPayload(&relaycommon.TaskSubmitReq{
+		Model:    "aidance-2-5-pro-260801",
+		Prompt:   "test",
+		Duration: 5,
+	})
+
+	assert.NoError(t, err)
+	if assert.NotNil(t, payload.Duration) {
+		assert.Equal(t, dto.IntValue(5), *payload.Duration)
+	}
+}
+
+func TestConvertToRequestPayloadPreservesTopLevelVideoParameters(t *testing.T) {
+	var req relaycommon.TaskSubmitReq
+	err := common.Unmarshal([]byte(`{
+		"model":"aidance-2-5-pro-260801",
+		"prompt":"test",
+		"resolution":"720p",
+		"ratio":"16:9",
+		"duration":5,
+		"generate_audio":true,
+		"seed":123,
+		"camera_fixed":false,
+		"watermark":false
+	}`), &req)
+	assert.NoError(t, err)
+
+	payload, err := (&TaskAdaptor{}).convertToRequestPayload(&req)
+	assert.NoError(t, err)
+	assert.Equal(t, "aidance-2-5-pro-260801", payload.Model)
+	assert.Equal(t, "720p", payload.Resolution)
+	assert.Equal(t, "16:9", payload.Ratio)
+	if assert.NotNil(t, payload.Duration) {
+		assert.Equal(t, dto.IntValue(5), *payload.Duration)
+	}
+	if assert.NotNil(t, payload.GenerateAudio) {
+		assert.Equal(t, dto.BoolValue(true), *payload.GenerateAudio)
+	}
+	if assert.NotNil(t, payload.Seed) {
+		assert.Equal(t, dto.IntValue(123), *payload.Seed)
+	}
+	assert.NotNil(t, payload.CameraFixed)
+	assert.NotNil(t, payload.Watermark)
+}

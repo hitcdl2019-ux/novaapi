@@ -1,8 +1,10 @@
 package helper
 
 import (
+	"errors"
 	"fmt"
 	"math"
+	"strconv"
 	"strings"
 
 	"github.com/QuantumNous/new-api/common"
@@ -248,11 +250,14 @@ func modelPriceHelperPerCallTiered(c *gin.Context, info *relaycommon.RelayInfo, 
 		return types.PriceData{}, fmt.Errorf("model %s is configured as tiered_expr but has no billing expression", info.OriginModelName)
 	}
 
-	requestInput, resolution, hasVideoInput, err := taskBillingExprRequestInput(c, info)
+	requestInput, resolution, hasVideoInput, duration, err := taskBillingExprRequestInput(c, info)
 	if err != nil {
 		return types.PriceData{}, err
 	}
 	requestInput.CNYExchangeRate = operation_setting.USDExchangeRate
+	if requestInput.CNYExchangeRate <= 0 {
+		return types.PriceData{}, errors.New("USD/CNY exchange rate must be greater than zero")
+	}
 
 	const estimatedOutputTokens = 1_000_000
 	rawCost, trace, err := billingexpr.RunExprWithRequest(exprStr, billingexpr.TokenParams{
@@ -266,7 +271,8 @@ func modelPriceHelperPerCallTiered(c *gin.Context, info *relaycommon.RelayInfo, 
 		return types.PriceData{}, fmt.Errorf("model %s has no tiered price configured for this task request", info.OriginModelName)
 	}
 	priceUSDPer1M := rawCost / estimatedOutputTokens
-	quotaBeforeGroup := priceUSDPer1M * common.QuotaPerUnit
+	const preConsumeCNYPerSecond = 1.5
+	quotaBeforeGroup := preConsumeCNYPerSecond * float64(duration) / requestInput.CNYExchangeRate * common.QuotaPerUnit
 	quota := billingexpr.QuotaRound(quotaBeforeGroup * groupRatioInfo.GroupRatio)
 	freeModel := false
 	if !operation_setting.GetQuotaSetting().EnableFreeModelPreConsume &&
@@ -312,14 +318,14 @@ func modelPriceHelperPerCallTiered(c *gin.Context, info *relaycommon.RelayInfo, 
 	return priceData, nil
 }
 
-func taskBillingExprRequestInput(c *gin.Context, info *relaycommon.RelayInfo) (billingexpr.RequestInput, string, bool, error) {
+func taskBillingExprRequestInput(c *gin.Context, info *relaycommon.RelayInfo) (billingexpr.RequestInput, string, bool, int, error) {
 	input, err := ResolveIncomingBillingExprRequestInput(c, info)
 	if err != nil {
-		return billingexpr.RequestInput{}, "", false, err
+		return billingexpr.RequestInput{}, "", false, 0, err
 	}
 	req, err := relaycommon.GetTaskRequest(c)
 	if err != nil {
-		return input, "", false, nil
+		return input, "", false, 10, nil
 	}
 
 	body := make(map[string]interface{}, len(req.Metadata)+4)
@@ -336,7 +342,7 @@ func taskBillingExprRequestInput(c *gin.Context, info *relaycommon.RelayInfo) (b
 	}
 	input.Body, err = common.Marshal(body)
 	if err != nil {
-		return billingexpr.RequestInput{}, "", false, err
+		return billingexpr.RequestInput{}, "", false, 0, err
 	}
 
 	resolution, _ := body["resolution"].(string)
@@ -350,7 +356,16 @@ func taskBillingExprRequestInput(c *gin.Context, info *relaycommon.RelayInfo) (b
 			}
 		}
 	}
-	return input, resolution, hasVideoInput, nil
+	duration := req.Duration
+	if duration <= 0 {
+		if seconds, parseErr := strconv.Atoi(req.Seconds); parseErr == nil {
+			duration = seconds
+		}
+	}
+	if duration <= 0 {
+		duration = 10
+	}
+	return input, resolution, hasVideoInput, duration, nil
 }
 
 func HasModelBillingConfig(modelName string) bool {

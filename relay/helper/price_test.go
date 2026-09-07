@@ -34,7 +34,7 @@ func TestModelPriceHelperPerCallUsesTieredVideoPricing(t *testing.T) {
 		"billing_setting.billing_expr": `{"tiered-video-model":"param(\"resolution\") == \"720p\" ? tier(\"720p_text\", c * cny(70)) : tier(\"unconfigured\", c * 0)"}`,
 	}))
 
-	body := []byte(`{"model":"tiered-video-model","prompt":"test","metadata":{"resolution":"720p","content":[]}}`)
+	body := []byte(`{"model":"tiered-video-model","prompt":"test","duration":5,"metadata":{"resolution":"720p","content":[]}}`)
 	recorder := httptest.NewRecorder()
 	ctx, _ := gin.CreateTestContext(recorder)
 	ctx.Request = httptest.NewRequest(http.MethodPost, "/v1/video/generations", io.NopCloser(bytes.NewReader(body)))
@@ -54,7 +54,7 @@ func TestModelPriceHelperPerCallUsesTieredVideoPricing(t *testing.T) {
 	require.Equal(t, "720p_text", info.TieredBillingSnapshot.EstimatedTier)
 	require.NotNil(t, priceData.TaskVideoTierPricing)
 	require.InDelta(t, 70/operation_setting.USDExchangeRate, priceData.TaskVideoTierPricing.SelectedPriceUSDPer1M, 1e-9)
-	require.Equal(t, billingexpr.QuotaRound(70/operation_setting.USDExchangeRate*common.QuotaPerUnit), priceData.Quota)
+	require.Equal(t, billingexpr.QuotaRound(5*1.5/operation_setting.USDExchangeRate*common.QuotaPerUnit), priceData.Quota)
 	require.True(t, priceData.AllowPerCallCompletionAdjustment)
 }
 
